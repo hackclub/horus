@@ -6,7 +6,7 @@ export function SiteBanner() {
       <div className="items-center justify-center px-4 py-2 flex flex-row gap-2">
         <MessageSquareWarningIcon size={18} />
         <p className="text-center text-sm">
-          Is your instance missing? reach out and have it added!
+          Is your instance missing? Reach out and have it added!
         </p>
       </div>
     </div>

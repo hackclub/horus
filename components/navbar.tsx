@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Suspense } from "react";
 import { authClient } from "@/lib/auth-client";
 import { cn, userIsSuperAdmin } from "@/lib/utils";
@@ -23,6 +24,7 @@ import { Skeleton } from "./ui/skeleton";
 
 export default function Navbar() {
   const { data: session, isPending } = authClient.useSession();
+  const theme = useTheme();
 
   function handleLogin() {
     authClient.signIn.oauth2({
@@ -43,15 +45,27 @@ export default function Navbar() {
             className="flex items-center gap-4"
             style={{ width: 333 / 4, height: 122 / 4 }}
           >
-            <Image
-              src="/Horus_Transparent.png"
-              alt="Horus"
-              width={333}
-              height={122}
-              loading="eager"
-              priority
-              className="object-contain"
-            />
+            {theme.theme === "light" ? (
+              <Image
+                src="/Horus_Transparent_Dark.png"
+                alt="Horus"
+                width={333}
+                height={122}
+                loading="eager"
+                priority
+                className="object-contain"
+              />
+            ) : (
+              <Image
+                src="/Horus_Transparent.png"
+                alt="Horus"
+                width={333}
+                height={122}
+                loading="eager"
+                priority
+                className="object-contain"
+              />
+            )}
           </div>
           <div className="flex items-center gap-2">
             {session?.session.impersonatedBy && (

@@ -112,7 +112,7 @@ export function InstanceCard({
           <div
             className={cn(
               imageUrl
-                ? "absolute bottom-0 left-0 w-full h-36 bg-linear-to-t from-black to-transparent p-4 flex flex-col"
+                ? "absolute bottom-0 left-0 w-full h-36 bg-linear-to-t from-card dark:from-black to-transparent p-4 flex flex-col"
                 : "w-full h-full p-4 flex flex-col",
             )}
           >
