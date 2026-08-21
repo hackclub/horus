@@ -30,7 +30,7 @@ const week = day * 7;
 function OpenRandomTicket(
   tickets?: Ticket[],
   slackChannel?: string | null,
-  deepLinking: boolean = true,
+  deepLinking?: boolean,
 ) {
   if (!tickets || tickets.length === 0 || !slackChannel) return;
   const randomIndex = Math.floor(Math.random() * tickets.length);
@@ -47,11 +47,11 @@ function OpenRandomTicket(
 function TicketTable({
   tickets,
   slackChannel,
-  deepLinking = true,
+  deepLinking,
 }: {
   tickets?: Ticket[];
   slackChannel?: string | null;
-  deepLinking: boolean;
+  deepLinking: boolean | undefined;
 }) {
   const ticketsData = useClientDataSource<Ticket>({
     data: tickets || [],
@@ -127,7 +127,7 @@ export function AssignedTicketsWidget({
 }) {
   const [staffs, setStaffs] = useState<CachetUser[]>([]);
   const [filterBy, setFilterBy] = useState<string>(slackId || "");
-
+  const { data: session } = authClient.useSession();
   const assignedTickets = useMemo(() => {
     if (filterBy === "") return tickets || [];
     if (!filterBy) return [];
@@ -198,7 +198,11 @@ export function AssignedTicketsWidget({
         <Badge variant="default">{assignedTickets?.length || 0} Tickets</Badge>
       </CardHeader>
       <CardContent className="h-125">
-        <TicketTable tickets={assignedTickets} slackChannel={slackChannel} />
+        <TicketTable
+          tickets={assignedTickets}
+          slackChannel={slackChannel}
+          deepLinking={session?.preferences?.isSlackDeeplinkingEnabled}
+        />
       </CardContent>
     </Card>
   );
@@ -242,7 +246,11 @@ export function UnassignedTicketsWidget({
         </Badge>
       </CardHeader>
       <CardContent className="h-125">
-        <TicketTable tickets={unassignedTickets} slackChannel={slackChannel} />
+        <TicketTable
+          tickets={unassignedTickets}
+          slackChannel={slackChannel}
+          deepLinking={session?.preferences?.isSlackDeeplinkingEnabled}
+        />
       </CardContent>
     </Card>
   );

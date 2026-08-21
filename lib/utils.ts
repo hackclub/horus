@@ -64,7 +64,7 @@ export function relativeTime(delta: number) {
 
 export function SlackChannelLink(
   channelId: string,
-  deepLinking: boolean = true,
+  deepLinking: boolean | undefined,
 ) {
   return deepLinking
     ? `slack://channel?team=E09V59WQY1E&id=${channelId}`
@@ -74,13 +74,12 @@ export function SlackChannelLink(
 export function SlackMessageLink(
   channelId: string,
   messageTs: string,
-  deepLinking: boolean = true,
+  deepLinking: boolean | undefined,
 ) {
-  //! /p${messageTs.replace(".", "")} for normal link
   if (deepLinking)
     return `${SlackChannelLink(channelId, deepLinking)}&thread_ts=${messageTs}`;
   else
-    return `${SlackChannelLink(channelId, deepLinking)}/p${messageTs.replace(".", "")} `;
+    return `${SlackChannelLink(channelId, false)}/p${messageTs.replace(".", "")} `;
 }
 
 export function userIsSuperAdmin(role: string | null | undefined): boolean {
