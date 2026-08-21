@@ -71,9 +71,16 @@ export function SlackChannelLink(
     : `https://hackclub.enterprise.slack.com/archives/${channelId}`;
 }
 
-export function SlackMessageLink(channelId: string, messageTs: string) {
+export function SlackMessageLink(
+  channelId: string,
+  messageTs: string,
+  deepLinking: boolean = true,
+) {
   //! /p${messageTs.replace(".", "")} for normal link
-  return `${SlackChannelLink(channelId)}&thread_ts=${messageTs}`;
+  if (deepLinking)
+    return `${SlackChannelLink(channelId, deepLinking)}&thread_ts=${messageTs}`;
+  else
+    return `${SlackChannelLink(channelId, deepLinking)}/p${messageTs.replace(".", "")} `;
 }
 
 export function userIsSuperAdmin(role: string | null | undefined): boolean {

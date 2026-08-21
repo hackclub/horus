@@ -9,6 +9,7 @@ import { ArrowUpRight, MailWarning } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getCachetUsers } from "@/app/actions/cachet";
 import { LyteNyte } from "@/components/lytenyte-core";
+import { authClient } from "@/lib/auth-client";
 import useWindowDimensions from "@/lib/use-window-dimensions";
 import { cn, relativeTime, SlackMessageLink } from "@/lib/utils";
 import type { CachetUser } from "@/types/cachet";
@@ -26,24 +27,31 @@ const hour = minute * 60;
 const day = hour * 24;
 const week = day * 7;
 
-function OpenRandomTicket(tickets?: Ticket[], slackChannel?: string | null) {
+function OpenRandomTicket(
+  tickets?: Ticket[],
+  slackChannel?: string | null,
+  deepLinking: boolean = true,
+) {
   if (!tickets || tickets.length === 0 || !slackChannel) return;
   const randomIndex = Math.floor(Math.random() * tickets.length);
   const ticketLink = SlackMessageLink(
     slackChannel,
     tickets[randomIndex].message_ts,
+    deepLinking,
   );
 
-  // deeplink
-  window.location.href = ticketLink;
+  if (deepLinking) window.location.href = ticketLink;
+  else window.open(ticketLink, "_blank");
 }
 
 function TicketTable({
   tickets,
   slackChannel,
+  deepLinking = true,
 }: {
   tickets?: Ticket[];
   slackChannel?: string | null;
+  deepLinking: boolean;
 }) {
   const ticketsData = useClientDataSource<Ticket>({
     data: tickets || [],
@@ -66,8 +74,13 @@ function TicketTable({
         if (!api.rowIsLeaf(row) || !row.data) return;
         return (
           <a
-            href={SlackMessageLink(slackChannel || "N/A", row.data.message_ts)}
+            href={SlackMessageLink(
+              slackChannel || "N/A",
+              row.data.message_ts,
+              deepLinking,
+            )}
             rel="noopener noreferrer"
+            target={!deepLinking ? "_blank" : "_self"}
             className="text-primary underline"
           >
             {row.data.title}
@@ -198,6 +211,7 @@ export function UnassignedTicketsWidget({
   tickets?: Ticket[];
   slackChannel?: string | null;
 }) {
+  const { data: session } = authClient.useSession();
   const unassignedTickets =
     tickets?.filter((ticket) => !ticket.assigned_to) || [];
 
@@ -208,7 +222,13 @@ export function UnassignedTicketsWidget({
           <h1 className="text-lg">Unassigned queue</h1>
           <Button
             className={"mt-2"}
-            onClick={() => OpenRandomTicket(unassignedTickets, slackChannel)}
+            onClick={() =>
+              OpenRandomTicket(
+                unassignedTickets,
+                slackChannel,
+                session?.preferences?.isSlackDeeplinkingEnabled,
+              )
+            }
             variant={"outline"}
           >
             Open random

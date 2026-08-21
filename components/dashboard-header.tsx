@@ -24,7 +24,17 @@ export default function DashboardHeader({
 
   function OpenSlackChannel(channelId: string | null) {
     if (!channelId) return console.error("Channel ID is null?");
-    window.open(SlackChannelLink(channelId), "");
+
+    const channelLink = SlackChannelLink(
+      channelId,
+      session?.preferences?.isSlackDeeplinkingEnabled,
+    );
+
+    if (session?.preferences?.isSlackDeeplinkingEnabled) {
+      window.location.href = channelLink;
+    } else {
+      window.open(channelLink, "_blank");
+    }
   }
 
   return (

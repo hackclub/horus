@@ -61,7 +61,17 @@ export function TicketWidget({
 
   function openTicket() {
     if (threadTimestamp && slackChannel) {
-      window.location.href = SlackMessageLink(slackChannel, threadTimestamp);
+      const msgLink = SlackMessageLink(
+        slackChannel,
+        threadTimestamp,
+        session?.preferences?.isSlackDeeplinkingEnabled,
+      );
+
+      if (session?.preferences?.isSlackDeeplinkingEnabled) {
+        window.location.href = msgLink;
+      } else {
+        window.open(msgLink, "_blank");
+      }
     } else {
       console.error("Unable to open ticket: missing channel or ticket data");
     }
