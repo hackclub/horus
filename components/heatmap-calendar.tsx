@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,8 +23,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ChevronDown } from "lucide-react";
-import * as React from "react";
 
 export type HeatmapDatum = {
   date: string | Date;
@@ -547,7 +547,7 @@ export function HeatmapCalendar({
       </CardHeader>
 
       <CardContent>
-        <TooltipProvider delayDuration={80}>
+        <TooltipProvider>
           <div
             className={cn(
               "flex gap-4 overflow-x-auto",
