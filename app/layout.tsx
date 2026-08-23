@@ -3,6 +3,7 @@ import { Geist_Mono, Lora, Space_Grotesk } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import "./globals.css";
+import { PosthogProvider } from "@/components/posthog-provider";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -54,6 +55,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider>
+            <PosthogProvider />
             <main>{children}</main>
             <Toaster />
           </TooltipProvider>

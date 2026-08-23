@@ -7,6 +7,11 @@ export type ErrorCode =
   | "IncompleteInstanceData"
   | "EncryptionKeyMissing"
   | "EncryptionFailed"
+  // upstream HTTP failures, see lib/errors.ts
+  | "UpstreamTimeout"
+  | "UpstreamUnreachable"
+  | "UpstreamError"
+  | "UpstreamBadResponse"
   | "InternalError";
 
 export type ErrorResponse = {

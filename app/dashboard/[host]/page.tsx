@@ -23,6 +23,7 @@ import {
 } from "@/components/ticket-table";
 import { TicketWidget } from "@/components/ticket-widget";
 import { auth } from "@/lib/auth";
+import { isErrorResponse, unwrap } from "@/lib/errors";
 import type { Ticket as TicketType } from "@/types/nephthys";
 
 export default async function Dashboard({
@@ -99,7 +100,7 @@ async function StatsPageDescription({
     status: "OPEN,IN_PROGRESS",
   });
 
-  if (!("error" in res)) {
+  if (!isErrorResponse(res)) {
     res.forEach((element) => {
       if (
         element.assigned_to &&
@@ -138,11 +139,11 @@ async function TicketsSection({
     headers: await headers(),
   });
 
-  const tickets = await fetchNephthysTickets(hostname, {
+  const ticketsResult = await fetchNephthysTickets(hostname, {
     status: "OPEN,IN_PROGRESS",
   });
 
-  if ("error" in tickets) throw new Error(tickets.error);
+  const tickets = unwrap(ticketsResult, `tickets for ${hostname}`);
 
   const userStats = { assigned: 0, unclaimed: 0, inProgress: 0 };
   const slackId = session?.user?.slack_id;
@@ -219,21 +220,21 @@ function TicketsSectionFallback() {
 
 async function StatsSection({ params }: { params: Promise<{ host: string }> }) {
   const { host: selectedHost } = await params;
-  const nepthysData = await GetNephthysHostnameFromSlug(selectedHost);
-  if ("error" in nepthysData)
-    throw new Error(
-      nepthysData.error || "Nephthys hostname not found for the selected host",
-      { cause: nepthysData.message },
-    );
+  const nepthysData = unwrap(
+    await GetNephthysHostnameFromSlug(selectedHost),
+    `nephthys host for ${selectedHost}`,
+  );
 
-  const [ticketsTTR, stats] = await Promise.all([
+  const [ticketsTTRResult, statsResult] = await Promise.all([
     fetchNephthysTicketsTTR(nepthysData.host),
     fetchNephthysStats(nepthysData.host),
   ]);
 
-  if ("error" in ticketsTTR)
-    throw new Error(ticketsTTR.error, { cause: ticketsTTR.message });
-  if ("error" in stats) throw new Error(stats.error, { cause: stats.message });
+  const ticketsTTR = unwrap(
+    ticketsTTRResult,
+    `ticket TTR for ${nepthysData.host}`,
+  );
+  const stats = unwrap(statsResult, `stats for ${nepthysData.host}`);
 
   return (
     <>

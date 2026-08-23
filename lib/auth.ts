@@ -78,7 +78,15 @@ export const auth = betterAuth({
         const userPrefs = await db.query.user_preferences.findFirst({
           where: { userId: user.id },
         });
-        return { user, session, preferences: userPrefs ?? null };
+        const userStreak = await db.query.user_streak_data.findFirst({
+          where: { userId: user.id },
+        });
+        return {
+          user,
+          session,
+          preferences: userPrefs ?? null,
+          streak: userStreak ?? null,
+        };
       },
       {
         user: {

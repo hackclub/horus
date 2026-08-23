@@ -7,6 +7,7 @@ import {
   session,
   user,
   user_preferences,
+  user_streak_data,
   verification,
 } from "./auth-schema";
 import {
@@ -20,6 +21,7 @@ export const relations = defineRelations(
   {
     user,
     user_preferences,
+    user_streak_data,
     session,
     account,
     organization,
@@ -37,6 +39,7 @@ export const relations = defineRelations(
       sessions: r.many.session(),
       accounts: r.many.account(),
       preferences: r.one.user_preferences(),
+      streak: r.one.user_streak_data(),
       members: r.many.member(),
       invitations: r.many.invitation(),
     },
@@ -48,6 +51,9 @@ export const relations = defineRelations(
     },
     user_preferences: {
       user: r.one.user({ from: r.user_preferences.userId, to: r.user.id }),
+    },
+    user_streak_data: {
+      user: r.one.user({ from: r.user_streak_data.userId, to: r.user.id }),
     },
     organization: {
       members: r.many.member(),

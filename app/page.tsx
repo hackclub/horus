@@ -9,6 +9,7 @@ import Navbar from "@/components/navbar";
 import { PageWrapper } from "@/components/page-template";
 import { PosthogPrefsLoader } from "@/components/posthog-prefs-loader";
 import { PageDescription, PageHeader } from "@/components/text-types";
+import { unwrap } from "@/lib/errors";
 import { GetInstances } from "./actions/instance";
 
 export default async function Home() {
@@ -29,33 +30,40 @@ export default async function Home() {
           </Suspense>
           <InstanceCardLogin />
         </div>
+        <Suspense>
+          <div className="w-full border-2" />
+          <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-4 py-7">
+            <InstanceGrid deprecated />
+          </div>
+        </Suspense>
       </PageWrapper>
       <Footer />
     </>
   );
 }
 
-async function InstanceGrid() {
-  const instances = await GetInstances();
-  if ("error" in instances) throw new Error(instances.error);
+async function InstanceGrid({ deprecated = false }: { deprecated?: boolean }) {
+  const instances = unwrap(await GetInstances(), "instance directory");
 
-  const sortedInstances = instances
+  const normalInstances = instances
     .sort((a, b) => {
       const statsA = a.openTickets + a.resolvedTickets + a.inProgressTickets;
       const statsB = b.openTickets + b.resolvedTickets + b.inProgressTickets;
 
       return statsB - statsA;
     })
-    .sort((a, b) => {
-      const hasImageA = a.imageUrl ? 1 : 0;
-      const hasImageB = b.imageUrl ? 1 : 0;
-
-      return hasImageB - hasImageA;
-    });
-
+    .reduce(
+      (acc, instance) => {
+        if (instance.deprecated === deprecated) {
+          acc.push(instance);
+        }
+        return acc;
+      },
+      [] as typeof instances,
+    );
   return (
     <>
-      {sortedInstances?.map((instance) => (
+      {normalInstances?.map((instance) => (
         <InstanceCard
           key={instance.instanceId}
           name={instance.name}
@@ -68,7 +76,7 @@ async function InstanceGrid() {
           imageUrl={instance.imageUrl}
           deprecated={instance.deprecated}
         />
-      ))}
+      ))}{" "}
     </>
   );
 }

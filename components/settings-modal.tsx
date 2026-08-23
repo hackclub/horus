@@ -15,6 +15,7 @@ import { GetInstances } from "@/app/actions/instance";
 import { setMarmaladeApiKey } from "@/app/actions/marmalade";
 import { updatePreferences } from "@/app/actions/preferences";
 import { authClient } from "@/lib/auth-client";
+import { isErrorResponse } from "@/lib/errors";
 import { Button } from "./ui/button";
 import { CogIcon } from "./ui/cog";
 import {
@@ -77,11 +78,15 @@ export function SettingsModal() {
       if (isPending) return;
       const instances = await GetInstances({ onlyMemberInstances: true });
 
-      if ("error" in instances) {
-        return {
-          error: "InternalError",
-          message: instances.message || "Failed to fetch user instances",
-        };
+      if (isErrorResponse(instances)) {
+        console.error("Failed to fetch user instances:", instances);
+        toast.add({
+          title: "Error",
+          description:
+            instances.message || "Failed to load your instances, try again?",
+          type: "error",
+        });
+        return;
       }
 
       setUserInstances(
@@ -94,7 +99,7 @@ export function SettingsModal() {
     }
 
     async function fetchMarmaladeFlag() {
-      const marmalade = (await getMarmaladeFlagEnabled()) as boolean;
+      const marmalade = await getMarmaladeFlagEnabled();
       setMarmFlagEnabled(marmalade);
     }
 
@@ -109,11 +114,11 @@ export function SettingsModal() {
 
     const response = await setMarmaladeApiKey(selectedInstance, apiKey);
 
-    if ("error" in response) {
-      console.error("Failed to save Marmalade API key:", response.error);
+    if (isErrorResponse(response)) {
+      console.error("Failed to save Marmalade API key:", response);
       toast.add({
         title: "Error",
-        description: `Failed to save Marmalade API key: ${response.error}`,
+        description: `Failed to save Marmalade API key: ${response.message || response.error}`,
         type: "error",
       });
     } else {

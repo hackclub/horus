@@ -6,10 +6,28 @@ import type {
   TimeDurations,
 } from "@/types/nephthys";
 import { getCachetUser } from "./cachet";
+import { UpstreamError } from "./errors";
 
 type FetchOptions = {
   revalidate?: number;
+  timeoutMs?: number;
 };
+
+const DEFAULT_TIMEOUT_MS = 10_000;
+const BODY_SNIPPET_LIMIT = 300;
+
+/** Best-effort peek at an error response body, so a 4xx/5xx says why. */
+async function readBodySnippet(response: Response): Promise<string> {
+  try {
+    const text = (await response.text()).trim();
+    if (!text) return "";
+    return text.length > BODY_SNIPPET_LIMIT
+      ? ` - body: ${text.slice(0, BODY_SNIPPET_LIMIT)}...`
+      : ` - body: ${text}`;
+  } catch {
+    return "";
+  }
+}
 
 export type NephthysTicketFilter = {
   status?: string;
@@ -24,17 +42,57 @@ export async function fetchNephthys<T>(
   host: string | null,
   options: FetchOptions = {},
 ): Promise<T> {
-  const response = await fetch(`https://${host}${path}`, {
-    signal: AbortSignal.timeout(10000),
-    headers: { accept: "application/json" },
-    next: { revalidate: options.revalidate ?? 10 },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Nephthys request failed: ${response.status}`);
+  if (!host) {
+    throw new Error(`Missing required parameter: host (for ${path})`);
   }
 
-  return response.json() as Promise<T>;
+  const url = `https://${host}${path}`;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: { accept: "application/json" },
+      next: { revalidate: options.revalidate ?? 10 },
+    });
+  } catch (error) {
+    // AbortSignal.timeout rejects with a TimeoutError; anything else out of
+    // fetch() is a TypeError whose real reason (ENOTFOUND, ECONNREFUSED, TLS
+    // failure, …) is only reachable through `cause`.
+    const timedOut =
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError");
+
+    throw new UpstreamError(
+      timedOut ? "timeout" : "network",
+      url,
+      timedOut
+        ? `GET ${url} timed out after ${timeoutMs}ms`
+        : `GET ${url} could not be reached`,
+      { cause: error },
+    );
+  }
+
+  if (!response.ok) {
+    throw new UpstreamError(
+      "http",
+      url,
+      `GET ${url} returned ${[response.status, response.statusText].join(" ").trim()}${await readBodySnippet(response)}`,
+      { status: response.status },
+    );
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    throw new UpstreamError(
+      "parse",
+      url,
+      `GET ${url} returned a body that is not valid JSON`,
+      { cause: error },
+    );
+  }
 }
 
 export async function getStats(
@@ -176,7 +234,7 @@ export async function getTicketsTTR(host: string) {
   return chartData as TicketTTR;
 }
 
-function daysAgoIsoDate(days: number) {
+export function daysAgoIsoDate(days: number) {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() - days);
   return date.toISOString().slice(0, 10);

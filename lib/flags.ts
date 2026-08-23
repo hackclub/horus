@@ -2,12 +2,11 @@ import type { PostHogEntities } from "@flags-sdk/posthog";
 import { createPostHogAdapter } from "@flags-sdk/posthog";
 import type { Identify } from "flags";
 import { flag } from "flags/next";
-import { authClient } from "./auth-client";
+import { auth } from "./auth";
 
-export const identify: Identify<PostHogEntities> = async () => {
-  const { data: session } = await authClient.getSession();
-
-  return { distinctId: session?.user?.id || "user-123" };
+export const identify: Identify<PostHogEntities> = async ({ headers }) => {
+  const session = await auth.api.getSession({ headers });
+  return { distinctId: session?.user?.id || "anon" };
 };
 
 const postHogAdapter = createPostHogAdapter({
@@ -19,6 +18,13 @@ const postHogAdapter = createPostHogAdapter({
 
 export const marmaladeFlag = flag({
   key: "marmalade",
+  defaultValue: false,
+  adapter: postHogAdapter,
+  identify,
+});
+
+export const streakFlag = flag({
+  key: "streak",
   defaultValue: false,
   adapter: postHogAdapter,
   identify,

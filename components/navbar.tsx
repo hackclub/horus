@@ -1,5 +1,6 @@
 "use client";
 
+import { FlameIcon } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -8,6 +9,7 @@ import { authClient } from "@/lib/auth-client";
 import { cn, userIsSuperAdmin } from "@/lib/utils";
 import { SettingsModal } from "./settings-modal";
 import { SiteBanner } from "./site-banner";
+import { StreakNavbar } from "./streak-navbar";
 import { ThemeSwitcher } from "./theme-switcher";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -82,56 +84,65 @@ export default function Navbar() {
             )}
             <ThemeSwitcher />
             <SettingsModal />
-            {session || isPending ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <button type="button">
-                      <Card className="flex items-center p-1">
-                        <CardContent className="flex items-center gap-3 px-0 md:px-1">
-                          <Avatar>
-                            <AvatarImage
-                              className="rounded-xs"
-                              src={session?.user.image || ""}
-                              alt={session?.user.name}
-                            />
-                            <AvatarFallback className="rounded-xs">
-                              {session?.user.name?.charAt(0) || "?"}
-                            </AvatarFallback>
-                          </Avatar>
 
-                          <div className="text-left hidden md:block">
-                            {isPending ? (
-                              <div className="flex flex-col gap-2 my-1">
-                                <Skeleton className="h-3 w-16" />
-                                <Skeleton className="h-2 w-20.5" />
-                              </div>
-                            ) : (
-                              <>
-                                <p className="font-extrabold">
-                                  {session?.user.name}{" "}
-                                  {userIsSuperAdmin(session?.user.role) && "⚡"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {session?.user.slack_id}
-                                </p>
-                              </>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </button>
-                  }
+            {session || isPending ? (
+              <div className="flex items-center gap-2">
+                <StreakNavbar
+                  streakValue={session?.streak?.currentStreak || 0}
                 />
-                <DropdownMenuContent className="w-40" align="start">
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={handleSignOut}>
-                      Logout
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <button type="button">
+                        <div className="flex flex-row">
+                          <Card className="flex items-center p-1  border ring-0 h-11">
+                            <CardContent className="flex items-center gap-3 px-1 md:px-1s">
+                              <Avatar>
+                                <AvatarImage
+                                  className="rounded-xs"
+                                  src={session?.user.image || ""}
+                                  alt={session?.user.name}
+                                />
+                                <AvatarFallback className="rounded-xs">
+                                  {session?.user.name?.charAt(0) || "?"}
+                                </AvatarFallback>
+                              </Avatar>
+
+                              <div className="text-left hidden md:block">
+                                {isPending ? (
+                                  <div className="flex flex-col gap-2 my-1">
+                                    <Skeleton className="h-3 w-16" />
+                                    <Skeleton className="h-2 w-20.5" />
+                                  </div>
+                                ) : (
+                                  <>
+                                    <p className="font-extrabold">
+                                      {session?.user.name}{" "}
+                                      {userIsSuperAdmin(session?.user.role) &&
+                                        "⚡"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground capitalize">
+                                      {session?.user.role}
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </button>
+                    }
+                  />
+                  <DropdownMenuContent className="w-40" align="start">
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={handleSignOut}>
+                        Logout
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : (
               <Button size="xl" className="text-md" onClick={handleLogin}>
                 Sign in →

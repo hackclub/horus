@@ -14,6 +14,7 @@ import { PageWrapper } from "@/components/page-template";
 import { PageDescription, PageHeader } from "@/components/text-types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { auth } from "@/lib/auth";
+import { isErrorResponse, unwrap } from "@/lib/errors";
 import { userIsSuperAdmin } from "@/lib/utils";
 
 export default async function AdminPage() {
@@ -56,8 +57,10 @@ async function AdminContent() {
 }
 
 async function InstancesSection() {
-  const instances = await GetInstances({ includePrivateInstances: true });
-  if ("error" in instances) throw new Error(instances.error);
+  const instances = unwrap(
+    await GetInstances({ includePrivateInstances: true }),
+    "admin instance list",
+  );
   return <InstancesManager instances={instances} />;
 }
 
@@ -66,12 +69,11 @@ async function UsersSection() {
     listAllUsers(),
     GetInstances({ includePrivateInstances: true }),
   ]);
-  const orgs =
-    "error" in instances
-      ? []
-      : instances.map((i) => ({
-          id: i.organizationId,
-          name: i.name,
-        }));
+  const orgs = isErrorResponse(instances)
+    ? []
+    : instances.map((i) => ({
+        id: i.organizationId,
+        name: i.name,
+      }));
   return <UsersManager users={users} orgs={orgs} />;
 }

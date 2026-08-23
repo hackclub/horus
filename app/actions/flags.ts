@@ -1,9 +1,13 @@
 "use server";
 
-import { marmaladeFlag } from "@/lib/flags";
+import { marmaladeFlag, streakFlag } from "@/lib/flags";
 
 export async function getMarmaladeFlagEnabled(): Promise<boolean> {
-  if (process.env.NODE_ENV === "development") return true;
   const marmalade = (await marmaladeFlag()) as boolean;
   return marmalade;
+}
+
+export async function getStreakFlagEnabled(): Promise<boolean> {
+  const streak = (await streakFlag()) as boolean;
+  return streak;
 }

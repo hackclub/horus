@@ -17,7 +17,7 @@ export function InstanceCard({
   slug,
   stats,
   imageUrl,
-  deprecated,
+  deprecated = false,
 }: {
   name: string;
   slug: string;
@@ -27,7 +27,7 @@ export function InstanceCard({
     inProgress: number;
   };
   imageUrl?: string | null;
-  deprecated: boolean;
+  deprecated?: boolean;
 }) {
   const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);

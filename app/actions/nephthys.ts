@@ -1,6 +1,7 @@
 "use server";
 
 import { cacheLife } from "next/cache";
+import { toErrorResponse } from "@/lib/errors";
 import {
   getStats,
   getTickets,
@@ -16,16 +17,9 @@ export async function fetchNephthysStats(
   "use cache";
   cacheLife("minutes");
   try {
-    const stats = await getStats(nephthysHost);
-    return stats;
+    return await getStats(nephthysHost);
   } catch (error) {
-    return {
-      error: "InternalError",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Gettings nephthys stats failed",
-    };
+    return toErrorResponse(`nephthys stats (${nephthysHost})`, error);
   }
 }
 
@@ -35,16 +29,9 @@ export async function fetchNephthysTickets(
   skipCache = false,
 ): Promise<ErrorResponse | Ticket[]> {
   try {
-    const tickets = await getTickets(nephthysHost, filter, skipCache);
-    return tickets;
+    return await getTickets(nephthysHost, filter, skipCache);
   } catch (error) {
-    return {
-      error: "InternalError",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Gettings nephthys tickets failed",
-    };
+    return toErrorResponse(`nephthys tickets (${nephthysHost})`, error);
   }
 }
 
@@ -54,15 +41,8 @@ export async function fetchNephthysTicketsTTR(
   "use cache";
   cacheLife("minutes");
   try {
-    const ticketsTTR = await getTicketsTTR(nephthysHost);
-    return ticketsTTR;
+    return await getTicketsTTR(nephthysHost);
   } catch (error) {
-    return {
-      error: "InternalError",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Gettings nephthys tickets TTR failed",
-    };
+    return toErrorResponse(`nephthys ticket TTR (${nephthysHost})`, error);
   }
 }
