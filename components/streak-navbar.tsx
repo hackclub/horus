@@ -33,8 +33,8 @@ export function StreakNavbar({ streakValue }: { streakValue: number }) {
             </Progress>
           </div> */}
           <p className="text-xs text-muted-foreground">
-            You have a {streakValue || 0} day streak running. To keep it
-            running, close at least 5 tickets each day on any program you are
+            You have a {streakValue} day streak running. To keep it running,
+            close at least 5 tickets each day on any program you are
             participating in.
           </p>
         </div>
