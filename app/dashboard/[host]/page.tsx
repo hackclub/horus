@@ -12,7 +12,6 @@ import { Footer } from "@/components/footer";
 import { HelperLeaderboardWidget } from "@/components/helper-leaderboard";
 import Navbar from "@/components/navbar";
 import { PageWrapper } from "@/components/page-template";
-import { PosthogPrefsLoader } from "@/components/posthog-prefs-loader";
 import { StatusChartWidget } from "@/components/status-chart-widget";
 import { SurveyWidget } from "@/components/survey-widget";
 import { PageDescription, PageDescriptionAuth } from "@/components/text-types";
@@ -34,7 +33,6 @@ export default async function Dashboard({
   return (
     <>
       <Navbar />
-      <PosthogPrefsLoader />
       <ErrorFallback title={"ERR"}>
         <PageWrapper variant="tight">
           <Suspense>
