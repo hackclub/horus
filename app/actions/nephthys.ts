@@ -15,7 +15,7 @@ export async function fetchNephthysStats(
   nephthysHost: string,
 ): Promise<CachetEnrichedStats | ErrorResponse> {
   "use cache";
-  cacheLife("minutes");
+  cacheLife("seconds");
   try {
     return await getStats(nephthysHost);
   } catch (error) {
