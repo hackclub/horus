@@ -70,9 +70,6 @@ export default async function ReviewPage({
               <KeybindGroup>
                 <Keybind btn="↵" name="Open thread" />
               </KeybindGroup>
-              <KeybindGroup>
-                <Keybind btn="R" name="Refresh" />
-              </KeybindGroup>
             </div>
           </Suspense>
         </PageWrapper>

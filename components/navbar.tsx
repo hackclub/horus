@@ -159,6 +159,11 @@ export default function Navbar() {
             displayName="Dashboard"
             disabled={!isPending && !session?.preferences?.defaultHost}
           />
+          <PageButton
+            path={`/dashboard/${session?.preferences?.defaultHost}/review`}
+            displayName="Review"
+            disabled={!isPending && !session?.preferences?.defaultHost}
+          />
           <Suspense fallback={null}>
             <SettingsButtonComponent />
           </Suspense>

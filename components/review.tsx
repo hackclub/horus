@@ -9,6 +9,32 @@ import { Avatar, AvatarImage } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 import { Card } from "./ui/card";
 
+//? claudes plan
+const WINDOW = 4;
+const SLOTS = WINDOW * 2 + 1;
+
+const CARD_H = 120;
+const ROW_GAP = 16;
+const ROW_H = CARD_H + ROW_GAP;
+
+const WHEEL_STEP = 50;
+
+const DEPTH_SCALE = [1, 0.98, 0.96, 0.95];
+const DEPTH_OPACITY = [1, 0.55, 0.25, 0];
+const HIDDEN_DEPTH = DEPTH_OPACITY.length - 1;
+
+const clamp = (value: number, max: number) => Math.max(0, Math.min(max, value));
+
+/** Which ticket each fixed slot shows, or null where the window runs off the list. */
+export function ticketSlots(selected: number, count: number) {
+  const start = Math.max(0, selected - WINDOW);
+  const end = Math.min(count - 1, selected + WINDOW);
+  return Array.from({ length: SLOTS }, (_, slot) => {
+    const index = start + ((((slot - start) % SLOTS) + SLOTS) % SLOTS);
+    return index <= end ? index : null;
+  });
+}
+
 function GetRelativeTimeSince(rawDate: string) {
   const date = new Date(rawDate);
   const delta = Math.round((Date.now() - +date) / 1000);
@@ -22,30 +48,30 @@ export function TicketSection({
   tickets: Ticket[] | ErrorResponse;
   slackChannel: string;
 }) {
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [selectedTicket, setSelectedTicket] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [rawSelected, setSelected] = useState(0);
   const { data: session } = authClient.useSession();
+
+  const list = "error" in tickets ? [] : tickets;
+  const max = list.length - 1;
+  const selected = clamp(rawSelected, max);
+  const deeplink = session?.preferences?.isSlackDeeplinkingEnabled;
 
   useEffect(() => {
     const keydownHandler = (e: KeyboardEvent) => {
+      if (!list.length) return;
+
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        setSelectedTicket((prev) => Math.max(1, prev - 1));
+        setSelected((prev) => clamp(prev - 1, max));
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        if ("error" in tickets) return;
-        setSelectedTicket((prev) => Math.min(tickets.length, prev + 1));
+        setSelected((prev) => clamp(prev + 1, max));
       } else if (e.key === "Enter") {
-        if ("error" in tickets) return;
-        console.log("opening thread");
         e.preventDefault();
         OpenSlackLink(
-          SlackMessageLink(
-            slackChannel,
-            tickets[selectedTicket - 1]?.message_ts,
-            session?.preferences?.isSlackDeeplinkingEnabled,
-          ),
-          session?.preferences?.isSlackDeeplinkingEnabled,
+          SlackMessageLink(slackChannel, list[selected]?.message_ts, deeplink),
+          deeplink,
         );
       }
     };
@@ -55,71 +81,86 @@ export function TicketSection({
     return () => {
       window.removeEventListener("keydown", keydownHandler);
     };
-  }, [
-    tickets,
-    selectedTicket,
-    session?.preferences?.isSlackDeeplinkingEnabled,
-    slackChannel,
-  ]);
+  }, [list, max, selected, slackChannel, deeplink]);
 
   useEffect(() => {
-    cardRefs.current[selectedTicket - 1]?.scrollIntoView({
-      block: "center",
-      behavior: "smooth",
-    });
-  }, [selectedTicket]);
+    const element = containerRef.current;
+    if (!element) return;
+
+    let accumulated = 0;
+    const wheelHandler = (e: WheelEvent) => {
+      e.preventDefault();
+      accumulated += e.deltaY;
+      const steps = Math.trunc(accumulated / WHEEL_STEP);
+      if (!steps) return;
+      accumulated -= steps * WHEEL_STEP;
+      setSelected((prev) => clamp(prev + steps, max));
+    };
+
+    element.addEventListener("wheel", wheelHandler, { passive: false });
+
+    return () => {
+      element.removeEventListener("wheel", wheelHandler);
+    };
+  }, [max]);
 
   if ("error" in tickets) {
     return null;
   }
 
+  const slots = ticketSlots(selected, list.length);
+
   return (
-    <div className="relative h-[60vh] overflow-y-auto overflow-x-hidden overscroll-contain py-[30vh] px-1 scrollbar-none &::-webkit-scrollbar:hidden mask-[linear-gradient(to_bottom,transparent,#000_18%,#000_82%,transparent)]">
-      <div className="space-y-4">
-        {tickets.map((ticket, index) => (
+    <div
+      ref={containerRef}
+      className="relative h-[60vh] overflow-hidden px-1 mask-[linear-gradient(to_bottom,transparent,#000_18%,#000_82%,transparent)]"
+    >
+      {slots.map((index, slot) =>
+        index === null ? null : (
           <TicketCard
-            key={ticket.id}
-            ref={(element) => {
-              cardRefs.current[index] = element;
-            }}
-            ticket={ticket}
-            selected={selectedTicket === index + 1}
-            distance={Math.abs(selectedTicket - 1 - index)}
-            onClick={() => setSelectedTicket(index + 1)}
+            // biome-ignore lint/suspicious/noArrayIndexKey: slot is the identity
+            key={slot}
+            ticket={list[index]}
+            offset={index - selected}
+            onClick={() => setSelected(index)}
           />
-        ))}
-      </div>
+        ),
+      )}
     </div>
   );
 }
 
 function TicketCard({
-  ref,
   ticket,
-  selected,
-  distance,
+  offset,
   onClick,
 }: {
-  ref?: React.Ref<HTMLDivElement>;
   ticket: Ticket;
-  selected?: boolean;
-  distance: number;
+  offset: number;
   onClick: () => void;
 }) {
+  const depth = Math.min(Math.abs(offset), HIDDEN_DEPTH);
+  const selected = offset === 0;
+
   return (
     <Card
-      ref={ref}
+      style={{
+        height: CARD_H,
+        opacity: DEPTH_OPACITY[depth],
+        transform: `translate3d(0, ${offset * ROW_H - CARD_H / 2}px, 0) scale(${DEPTH_SCALE[depth]})`,
+      }}
       className={cn(
-        "relative grid grid-cols-10 border-2 transition-all duration-200 cursor-pointer",
-        selected && "border-primary scale-100",
-        distance === 1 && "opacity-55 scale-98",
-        distance >= 2 && "opacity-25 scale-96",
+        "absolute inset-x-1 top-1/2 grid grid-cols-10 border-2 cursor-pointer",
+        "transition-[transform,opacity,border-color] duration-150 ease-out motion-reduce:transition-none",
+        selected && "border-primary",
+        depth === HIDDEN_DEPTH && "pointer-events-none",
       )}
+      aria-hidden={depth === HIDDEN_DEPTH}
       onClick={onClick}
     >
       <div className="px-4 col-span-8">
         <h1 className="text-[15px]">{ticket.title}</h1>
-        <p className={cn(!selected && "line-clamp-2")}>
+        <p className={cn(selected ? "line-clamp-3" : "line-clamp-2")}>
           "i dont have ts data yet :(((("
         </p>
       </div>
