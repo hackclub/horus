@@ -75,7 +75,7 @@ export function SettingsModal() {
 
   useEffect(() => {
     async function fetchUserInstances() {
-      if (isPending) return;
+      if (isPending || !session?.user) return;
       const instances = await GetInstances({ onlyMemberInstances: true });
 
       if (isErrorResponse(instances)) {
@@ -105,7 +105,7 @@ export function SettingsModal() {
 
     fetchUserInstances();
     fetchMarmaladeFlag();
-  }, [isPending]);
+  }, [isPending, session?.user]);
 
   async function handleSaveApiKey() {
     if (!selectedInstance) return;

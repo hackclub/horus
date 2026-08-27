@@ -48,7 +48,6 @@ export default async function ReviewPage({
       </>
     );
   }
-
   return (
     <>
       <Navbar />
@@ -58,7 +57,10 @@ export default async function ReviewPage({
             <PageDescription>Flip through tickets</PageDescription>
           </PageHeader>
           <Suspense>
-            <TicketSection tickets={ticketResponse} />
+            <TicketSection
+              tickets={ticketResponse}
+              slackChannel={nephthysHost.slackChannel}
+            />
             <div className="w-full border-2 my-8" />
             <div className="flex flex-row gap-2">
               <KeybindGroup>

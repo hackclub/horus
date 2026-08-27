@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { cn, relativeTime, SlackMessageLink } from "@/lib/utils";
+import { cn, OpenSlackLink, relativeTime, SlackMessageLink } from "@/lib/utils";
 import type { ErrorResponse } from "@/types/error";
 import type { Ticket } from "@/types/nephthys";
 import { Avatar, AvatarImage } from "./ui/avatar";
@@ -39,9 +39,12 @@ export function TicketSection({
         if ("error" in tickets) return;
         console.log("opening thread");
         e.preventDefault();
-        SlackMessageLink(
-          slackChannel,
-          tickets[selectedTicket - 1]?.message_ts,
+        OpenSlackLink(
+          SlackMessageLink(
+            slackChannel,
+            tickets[selectedTicket - 1]?.message_ts,
+            session?.preferences?.isSlackDeeplinkingEnabled,
+          ),
           session?.preferences?.isSlackDeeplinkingEnabled,
         );
       }
@@ -71,7 +74,7 @@ export function TicketSection({
   }
 
   return (
-    <div className="relative h-[60vh] overflow-y-auto overflow-x-hidden overscroll-contain py-[30vh] px-1 scrollbar-none &::-webkit-scrollbar:hidden [mask-image:linear-gradient(to_bottom,transparent,#000_18%,#000_82%,transparent)]">
+    <div className="relative h-[60vh] overflow-y-auto overflow-x-hidden overscroll-contain py-[30vh] px-1 scrollbar-none &::-webkit-scrollbar:hidden mask-[linear-gradient(to_bottom,transparent,#000_18%,#000_82%,transparent)]">
       <div className="space-y-4">
         {tickets.map((ticket, index) => (
           <TicketCard

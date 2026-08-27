@@ -85,3 +85,14 @@ export function SlackMessageLink(
 export function userIsSuperAdmin(role: string | null | undefined): boolean {
   return role === "admin";
 }
+
+export function OpenSlackLink(
+  msgLink: string,
+  deepLinking: boolean | undefined,
+) {
+  if (deepLinking) {
+    window.location.href = msgLink;
+  } else {
+    window.open(msgLink, "_blank");
+  }
+}

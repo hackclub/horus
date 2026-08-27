@@ -3,7 +3,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { use, useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { greet, SlackChannelLink } from "@/lib/utils";
+import { greet, OpenSlackLink, SlackChannelLink } from "@/lib/utils";
 import { PageHeader } from "./text-types";
 import { Button } from "./ui/button";
 
@@ -30,11 +30,7 @@ export default function DashboardHeader({
       session?.preferences?.isSlackDeeplinkingEnabled,
     );
 
-    if (session?.preferences?.isSlackDeeplinkingEnabled) {
-      window.location.href = channelLink;
-    } else {
-      window.open(channelLink, "_blank");
-    }
+    OpenSlackLink(channelLink, session?.preferences?.isSlackDeeplinkingEnabled);
   }
 
   return (
