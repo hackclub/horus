@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  InfoIcon,
   LockKeyhole,
   MailWarning,
   MoveUpRight,
@@ -16,7 +17,9 @@ import { setMarmaladeApiKey } from "@/app/actions/marmalade";
 import { updatePreferences } from "@/app/actions/preferences";
 import { authClient } from "@/lib/auth-client";
 import { isErrorResponse } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 import { CogIcon } from "./ui/cog";
 import {
   Dialog,
@@ -42,6 +45,8 @@ export function SettingsModal() {
   const [selectedInstance, setSelectedInstance] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string>("");
   const [marmFlagEnabled, setMarmFlagEnabled] = useState<boolean>(false);
+
+  const lowTrafficHosts = () => session?.preferences?.lowTrafficHosts;
 
   async function TogglePosthogCollection() {
     setIsLoading(true);
@@ -145,7 +150,7 @@ export function SettingsModal() {
           </Button>
         }
       />
-      <DialogContent>
+      <DialogContent className="md:min-w-xl ">
         <DialogHeader>
           <DialogTitle>Preferences</DialogTitle>
         </DialogHeader>
@@ -190,6 +195,12 @@ export function SettingsModal() {
             </Button>
           </SettingContainer>
 
+          <SettingCallout
+            type={"default"}
+            icon={<InfoIcon size={24} />}
+            text="Theese settings require being a member of the instance"
+            description="If you are unsure of who to contact, please reach out to @Simon K on Slack or send a message in the #horus channel! :)"
+          />
           {marmFlagEnabled && (
             <SettingContainer>
               <SettingHeader
@@ -260,6 +271,33 @@ export function SettingsModal() {
               </div>
             </SettingContainer>
           )}
+          <SettingContainer>
+            <SettingHeader
+              title="Low Traffic Hosts"
+              description="Add hosts here to get an alternative interface more optimization for low-traffic instances."
+            />
+            <Select
+              items={userInstances}
+              onValueChange={(value) => {
+                setSelectedInstance(value);
+              }}
+              defaultValue={userInstances[0]?.value}
+            >
+              <SelectTrigger
+                className="w-full"
+                disabled={isLoading || userInstances.length === 0}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {userInstances.map((instance) => (
+                  <SelectItem key={instance.value} value={instance.value}>
+                    {instance.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingContainer>
         </div>
       </DialogContent>
     </Dialog>
@@ -283,4 +321,34 @@ function SettingHeader({
 
 function SettingContainer({ children }: { children: React.ReactNode }) {
   return <div>{children}</div>;
+}
+
+function SettingCallout({
+  text,
+  description,
+  icon,
+  type = "default",
+}: {
+  text: string;
+  description: string;
+  icon: React.ReactNode;
+  type: "default" | "destructive" | "warning";
+}) {
+  return (
+    <Card className="flex flex-row gap-2 p-5">
+      <div>{icon}</div>
+      <div>
+        <p
+          className={cn("font-bold", {
+            "text-primary": type === "default",
+            "text-destructive-foreground": type === "destructive",
+            "text-warning-foreground": type === "warning",
+          })}
+        >
+          {text}
+        </p>
+        <p className="text-muted-foreground">{description}</p>
+      </div>
+    </Card>
+  );
 }

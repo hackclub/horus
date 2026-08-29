@@ -18,7 +18,7 @@ import { PageDescription, PageDescriptionAuth } from "@/components/text-types";
 import { TicketAgeChartWidget } from "@/components/ticket-age-chart-widget";
 import {
   AssignedTicketsWidget,
-  UnassignedTicketsWidget,
+  TicketsWidget,
 } from "@/components/ticket-table";
 import { TicketWidget } from "@/components/ticket-widget";
 import { auth } from "@/lib/auth";
@@ -187,9 +187,10 @@ async function TicketsSection({
               slackChannel={slackChannel}
             />
           )}
-          <UnassignedTicketsWidget
+          <TicketsWidget
             tickets={tickets}
             slackChannel={slackChannel}
+            unassigned={true}
           />
         </div>
       </div>
@@ -209,7 +210,7 @@ function TicketsSectionFallback() {
       <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-4 py-2">
         <div className="col-span-3 flex flex-col gap-4">
           <AssignedTicketsWidget />
-          <UnassignedTicketsWidget />
+          <TicketsWidget unassigned={true} />
         </div>
       </div>
     </>

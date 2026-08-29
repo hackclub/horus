@@ -9,6 +9,7 @@ export async function updatePreferences(input: {
   defaultHost?: string;
   isOptedOutTracking?: boolean;
   isSlackDeeplinkingEnabled?: boolean;
+  lowTrafficHosts?: string[];
 }) {
   const h = await headers();
   const session = await auth.api.getSession({ headers: h });
@@ -18,6 +19,7 @@ export async function updatePreferences(input: {
     defaultHost: input.defaultHost,
     isOptedOutTracking: input.isOptedOutTracking,
     isSlackDeeplinkingEnabled: input.isSlackDeeplinkingEnabled,
+    lowTrafficHosts: input.lowTrafficHosts,
   };
 
   await db

@@ -30,6 +30,7 @@ export const user_preferences = pgTable("user_preferences", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
+  lowTrafficHosts: text("low_traffic_hosts").array(),
   isOptedOutTracking: boolean("is_opted_out_tracking").default(false).notNull(),
   isSlackDeeplinkingEnabled: boolean("is_slack_deeplinking_enabled")
     .default(true)
