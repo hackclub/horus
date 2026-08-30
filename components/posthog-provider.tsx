@@ -3,6 +3,7 @@
 import { posthog } from "posthog-js";
 import { useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
+import { PosthogPrefsLoader } from "./posthog-prefs-loader";
 
 export function PosthogProvider() {
   const { data: session } = authClient.useSession();
@@ -15,5 +16,5 @@ export function PosthogProvider() {
     }
   }, [session?.user]);
 
-  return null;
+  return <PosthogPrefsLoader />;
 }

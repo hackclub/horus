@@ -4,7 +4,7 @@ import { SettingsClient } from "@/components/settings/settings-client";
 
 export default async function SettingsPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense>
       <SettingsContent />
     </Suspense>
   );

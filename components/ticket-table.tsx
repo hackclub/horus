@@ -18,7 +18,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader } from "./ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "./ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 type Spec = Grid.GridSpec<Ticket>;
 
@@ -154,6 +160,13 @@ export function AssignedTicketsWidget({
     }
   }, [staffIds, slackId]);
 
+  // const sortByOptions = [
+  //   {
+  //     label: "Created",
+  //     value: "created_at",
+  //   },
+  // ];
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -195,7 +208,11 @@ export function AssignedTicketsWidget({
             </SelectContent>
           </Select>
         </div>
-        <Badge variant="default">{assignedTickets?.length || 0} Tickets</Badge>
+        <div>
+          <Badge variant="default">
+            {assignedTickets?.length || 0} Tickets
+          </Badge>
+        </div>
       </CardHeader>
       <CardContent className="h-125">
         <TicketTable
@@ -208,22 +225,72 @@ export function AssignedTicketsWidget({
   );
 }
 
-export function UnassignedTicketsWidget({
+export function TicketsWidget({
   tickets,
   slackChannel,
+  unassigned = false,
 }: {
   tickets?: Ticket[];
   slackChannel?: string | null;
+  unassigned?: boolean;
 }) {
   const { data: session } = authClient.useSession();
+  const [sortBy, setSortBy] = useState<string>("created_at");
   const unassignedTickets =
-    tickets?.filter((ticket) => !ticket.assigned_to) || [];
+    (unassigned ? tickets?.filter((ticket) => !ticket.assigned_to) : tickets) ||
+    [];
+
+  const sortByOptions = [
+    {
+      label: "Author",
+      value: "author",
+    },
+    {
+      label: "Created",
+      value: "created_at",
+    },
+  ];
+
+  const filteredTickets = useMemo(() => {
+    switch (sortBy) {
+      case "created_at":
+        return unassignedTickets.sort(
+          (a, b) => Number(a.created_at) - Number(b.created_at),
+        );
+      case "author": {
+        const counts = new Map<string, number>();
+        for (const t of unassignedTickets) {
+          const author = t.opened_by?.username || "";
+          counts.set(author, (counts.get(author) || 0) + 1);
+        }
+        return unassignedTickets.sort((a, b) => {
+          const aAuthor = a.opened_by?.username || "";
+          const bAuthor = b.opened_by?.username || "";
+
+          return (
+            // Busiest author first, then name, then newest within the group
+            (counts.get(bAuthor) || 0) - (counts.get(aAuthor) || 0) ||
+            aAuthor.localeCompare(bAuthor) ||
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        });
+      }
+      case "status":
+        return unassignedTickets.sort((a, b) =>
+          a.status.localeCompare(b.status),
+        );
+      default:
+        return unassignedTickets;
+    }
+  }, [unassignedTickets, sortBy]);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <h1 className="text-lg">Unassigned queue</h1>
+          <h1 className="text-lg">
+            {unassigned ? "Unassigned queue" : "Ticket queue"}
+          </h1>
           <Button
             className={"mt-2"}
             onClick={() =>
@@ -239,15 +306,37 @@ export function UnassignedTicketsWidget({
             <ArrowUpRight />
           </Button>
         </div>
-        <Badge
-          variant={unassignedTickets.length > 50 ? "destructive" : "default"}
-        >
-          {unassignedTickets.length} Tickets
-        </Badge>
+        <div className="text-right space-y-2 pt-1">
+          <Badge
+            variant={unassignedTickets.length > 50 ? "destructive" : "default"}
+          >
+            {unassignedTickets.length} Tickets
+          </Badge>
+          <Select
+            value={sortBy}
+            onValueChange={(value) => setSortBy(value || "created_at")}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Sort by">
+                {sortByOptions.find((o) => o.value.includes(sortBy))?.label ||
+                  "Sort by"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {sortByOptions.map((option) => {
+                return (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent className="h-125">
         <TicketTable
-          tickets={unassignedTickets}
+          tickets={filteredTickets}
           slackChannel={slackChannel}
           deepLinking={session?.preferences?.isSlackDeeplinkingEnabled}
         />

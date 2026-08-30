@@ -1,6 +1,5 @@
 "use client";
 
-import { FlameIcon } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -157,6 +156,11 @@ export default function Navbar() {
           <PageButton
             path={`/dashboard/${session?.preferences?.defaultHost}`}
             displayName="Dashboard"
+            disabled={!isPending && !session?.preferences?.defaultHost}
+          />
+          <PageButton
+            path={`/dashboard/${session?.preferences?.defaultHost}/review`}
+            displayName="Review"
             disabled={!isPending && !session?.preferences?.defaultHost}
           />
           <Suspense fallback={null}>

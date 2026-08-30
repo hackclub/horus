@@ -198,7 +198,14 @@ function SettingsInner({ data }: { data: NonNullable<SettingsData> }) {
                   </Section>
                 )}
                 {perms.membersRead && (
-                  <Section name="Members">
+                  <Section
+                    name="Members"
+                    component={
+                      perms.membersWrite && (
+                        <AddMemberDialog onAdded={refresh} />
+                      )
+                    }
+                  >
                     <MembersPanel
                       members={data.members}
                       canWrite={perms.membersWrite}
@@ -244,9 +251,11 @@ function SettingsInner({ data }: { data: NonNullable<SettingsData> }) {
 function Section({
   name,
   children,
+  component,
 }: {
   name: SettingsSection;
   children: React.ReactNode;
+  component?: React.ReactNode;
 }) {
   const meta = SectionMeta[name];
   return (
@@ -257,11 +266,12 @@ function Section({
         meta.destructive && "border-destructive",
       )}
     >
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <h1 className="text-lg">{name}</h1>
           <p className="text-muted-foreground font-sans">{meta.description}</p>
         </div>
+        {component}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">{children}</CardContent>
     </Card>
@@ -377,7 +387,6 @@ function MembersPanel({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      {canWrite && <AddMemberDialog onAdded={onChanged} />}
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -468,8 +477,17 @@ function AddMemberDialog({ onAdded }: { onAdded: () => void }) {
     null,
   );
   const [role, setRole] = useState<OrgRole>("helper");
+  const [open, setOpen] = useState(false);
+
+  function AddMember() {
+    setPicked(null);
+    setRole("helper");
+    setOpen(false);
+    onAdded();
+  }
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
           <Button size="sm" className="self-start">
@@ -504,7 +522,7 @@ function AddMemberDialog({ onAdded }: { onAdded: () => void }) {
           <Button
             disabled={!picked}
             onClick={() =>
-              picked && run(() => addInstanceMember(picked.id, role), onAdded)
+              picked && run(() => addInstanceMember(picked.id, role), AddMember)
             }
           >
             Add

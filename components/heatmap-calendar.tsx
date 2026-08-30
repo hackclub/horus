@@ -440,7 +440,7 @@ export function HeatmapCalendar({
     }
 
     return labels;
-  }, [columns, showAxis, showMonths, monthFormat, minWeekSpacing]);
+  }, [showAxis, showMonths, monthFormat, minWeekSpacing]);
 
   /* ---------------- legend ---------------- */
 

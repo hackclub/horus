@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  InfoIcon,
   LockKeyhole,
   MailWarning,
   MoveUpRight,
@@ -16,7 +17,9 @@ import { setMarmaladeApiKey } from "@/app/actions/marmalade";
 import { updatePreferences } from "@/app/actions/preferences";
 import { authClient } from "@/lib/auth-client";
 import { isErrorResponse } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 import { CogIcon } from "./ui/cog";
 import {
   Dialog,
@@ -43,6 +46,10 @@ export function SettingsModal() {
   const [apiKey, setApiKey] = useState<string>("");
   const [marmFlagEnabled, setMarmFlagEnabled] = useState<boolean>(false);
 
+  const lowTrafficHosts = session?.preferences?.lowTrafficHosts ?? [];
+  const selectedHost =
+    userInstances.find((i) => i.value === selectedInstance)?.slug ?? null;
+
   async function TogglePosthogCollection() {
     setIsLoading(true);
     await updatePreferences({
@@ -68,14 +75,28 @@ export function SettingsModal() {
     await refetch();
     setIsLoading(false);
   }
+
+  async function ToggleLowTrafficHost() {
+    if (!selectedHost) return;
+    setIsLoading(true);
+    await updatePreferences({
+      lowTrafficHosts: lowTrafficHosts.includes(selectedHost)
+        ? lowTrafficHosts.filter((host) => host !== selectedHost)
+        : [...lowTrafficHosts, selectedHost],
+    });
+
+    await refetch();
+    setIsLoading(false);
+  }
   type selectItem = {
     label: string;
     value: string;
+    slug: string;
   };
 
   useEffect(() => {
     async function fetchUserInstances() {
-      if (isPending) return;
+      if (isPending || !session?.user) return;
       const instances = await GetInstances({ onlyMemberInstances: true });
 
       if (isErrorResponse(instances)) {
@@ -93,6 +114,7 @@ export function SettingsModal() {
         instances.map((instance) => ({
           label: instance.name,
           value: instance.instanceId,
+          slug: instance.slug,
         })),
       );
       setSelectedInstance(instances[0]?.instanceId || null);
@@ -105,7 +127,7 @@ export function SettingsModal() {
 
     fetchUserInstances();
     fetchMarmaladeFlag();
-  }, [isPending]);
+  }, [isPending, session?.user]);
 
   async function handleSaveApiKey() {
     if (!selectedInstance) return;
@@ -145,7 +167,7 @@ export function SettingsModal() {
           </Button>
         }
       />
-      <DialogContent>
+      <DialogContent className="md:min-w-xl ">
         <DialogHeader>
           <DialogTitle>Preferences</DialogTitle>
         </DialogHeader>
@@ -190,75 +212,109 @@ export function SettingsModal() {
             </Button>
           </SettingContainer>
 
-          {marmFlagEnabled && (
-            <SettingContainer>
-              <SettingHeader
-                title="Marmalade API Key (Jelly)"
-                description="Marmalade is used to fetch your mailboxes and messages, you need one API key for each instance."
+          {!isPending && userInstances.length === 0 ? (
+            <SettingCallout
+              type={"destructive"}
+              icon={<MailWarning size={24} />}
+              text="You are not a member of any instances"
+              description="Please contact an admin to add you, if you are unsure of who to contact, reach out to @Simon K on Slack or send a message in the #horus channel! :)"
+            />
+          ) : (
+            <>
+              <SettingCallout
+                type={"default"}
+                icon={<InfoIcon size={24} />}
+                text="Theese settings require being a member of the instance"
+                description="If you are unsure of who to contact, please reach out to @Simon K on Slack or send a message in the #horus channel! :)"
               />
-              {!isPending && userInstances.length === 0 && (
-                <div className="border border-destructive p-3 my-3 rounded-md flex flex-row gap-3">
-                  <div>
-                    <MailWarning size={24} className="text-destructive" />
+              <SettingContainer>
+                <Card className="p-4">
+                  <SettingHeader
+                    title="Selected Instance"
+                    description="Select the instance to modify, this applies to all settings below."
+                  />
+                  <Select
+                    items={userInstances}
+                    onValueChange={(value) => {
+                      setSelectedInstance(value);
+                    }}
+                    defaultValue={userInstances[0]?.value}
+                  >
+                    <SelectTrigger
+                      className="w-full"
+                      disabled={isLoading || userInstances.length === 0}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {userInstances.map((instance) => (
+                        <SelectItem key={instance.value} value={instance.value}>
+                          {instance.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Card>
+              </SettingContainer>
+              {marmFlagEnabled && (
+                <SettingContainer>
+                  <SettingHeader
+                    title="Marmalade API Key (Jelly)"
+                    description="Marmalade is used to fetch your mailboxes and messages, you need one API key for each instance."
+                  />
+                  <div className="flex flex-row gap-2 mt-2">
+                    <Input
+                      placeholder="Enter API Key"
+                      id="apiKey"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      type="password"
+                      disabled={isLoading || userInstances.length === 0}
+                    />
+                    <Button
+                      disabled={
+                        isLoading ||
+                        userInstances.length === 0 ||
+                        !apiKey ||
+                        apiKey.length < 1
+                      }
+                      onClick={handleSaveApiKey}
+                    >
+                      Save
+                      <SaveIcon size={10} />
+                    </Button>
+                    <Button
+                      variant="link"
+                      onClick={() => OpenMarmaladeAPIKeyPage()}
+                      disabled={isLoading}
+                    >
+                      Get API Key
+                      <MoveUpRight size={10} />
+                    </Button>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    You are not a member of any instances, please contact an
-                    admin to add you and you can then setup jelly.
-                  </p>
-                </div>
+                </SettingContainer>
               )}
-              <Select
-                items={userInstances}
-                onValueChange={(value) => {
-                  setSelectedInstance(value);
-                }}
-                defaultValue={userInstances[0]?.value}
-              >
-                <SelectTrigger
-                  className="w-full"
-                  disabled={isLoading || userInstances.length === 0}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {userInstances.map((instance) => (
-                    <SelectItem key={instance.value} value={instance.value}>
-                      {instance.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex flex-row gap-2 mt-2">
-                <Input
-                  placeholder="Enter API Key"
-                  id="apiKey"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  type="password"
-                  disabled={isLoading || userInstances.length === 0}
+              <SettingContainer>
+                <SettingHeader
+                  title="Low Traffic Hosts"
+                  description="Add hosts here to get an alternative interface more optimization for low-traffic instances."
                 />
                 <Button
-                  disabled={
-                    isLoading ||
-                    userInstances.length === 0 ||
-                    !apiKey ||
-                    apiKey.length < 1
-                  }
-                  onClick={handleSaveApiKey}
+                  className="gap-2"
+                  onClick={() => ToggleLowTrafficHost()}
+                  disabled={isLoading || !selectedHost}
                 >
-                  Save
-                  <SaveIcon size={10} />
+                  {selectedHost && lowTrafficHosts.includes(selectedHost)
+                    ? "Disable"
+                    : "Enable"}
+                  {selectedHost && lowTrafficHosts.includes(selectedHost) ? (
+                    <LockKeyhole size={12} />
+                  ) : (
+                    <UnlockKeyhole size={12} />
+                  )}
                 </Button>
-                <Button
-                  variant="link"
-                  onClick={() => OpenMarmaladeAPIKeyPage()}
-                  disabled={isLoading}
-                >
-                  Get API Key
-                  <MoveUpRight size={10} />
-                </Button>
-              </div>
-            </SettingContainer>
+              </SettingContainer>
+            </>
           )}
         </div>
       </DialogContent>
@@ -283,4 +339,42 @@ function SettingHeader({
 
 function SettingContainer({ children }: { children: React.ReactNode }) {
   return <div>{children}</div>;
+}
+
+function SettingCallout({
+  text,
+  description,
+  icon,
+  type = "default",
+}: {
+  text: string;
+  description: string;
+  icon: React.ReactNode;
+  type: "default" | "destructive" | "warning";
+}) {
+  return (
+    <Card className="flex flex-row gap-2 p-5">
+      <div
+        className={cn("", {
+          "text-primary": type === "default",
+          "text-destructive": type === "destructive",
+          "text-warning": type === "warning",
+        })}
+      >
+        {icon}
+      </div>
+      <div>
+        <p
+          className={cn("font-bold", {
+            "text-primary": type === "default",
+            "text-destructive": type === "destructive",
+            "text-warning": type === "warning",
+          })}
+        >
+          {text}
+        </p>
+        <p className="text-muted-foreground">{description}</p>
+      </div>
+    </Card>
+  );
 }

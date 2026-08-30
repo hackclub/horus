@@ -12,14 +12,13 @@ import { Footer } from "@/components/footer";
 import { HelperLeaderboardWidget } from "@/components/helper-leaderboard";
 import Navbar from "@/components/navbar";
 import { PageWrapper } from "@/components/page-template";
-import { PosthogPrefsLoader } from "@/components/posthog-prefs-loader";
 import { StatusChartWidget } from "@/components/status-chart-widget";
 import { SurveyWidget } from "@/components/survey-widget";
 import { PageDescription, PageDescriptionAuth } from "@/components/text-types";
 import { TicketAgeChartWidget } from "@/components/ticket-age-chart-widget";
 import {
   AssignedTicketsWidget,
-  UnassignedTicketsWidget,
+  TicketsWidget,
 } from "@/components/ticket-table";
 import { TicketWidget } from "@/components/ticket-widget";
 import { auth } from "@/lib/auth";
@@ -34,7 +33,6 @@ export default async function Dashboard({
   return (
     <>
       <Navbar />
-      <PosthogPrefsLoader />
       <ErrorFallback title={"ERR"}>
         <PageWrapper variant="tight">
           <Suspense>
@@ -154,6 +152,18 @@ async function TicketsSection({
     else if (ticket.status === "IN_PROGRESS") userStats.inProgress++;
   }
 
+  const lowTraffic =
+    session?.preferences?.lowTrafficHosts?.includes(selectedHost) ?? false;
+
+  // Low traffic instances have a short enough queue to show it whole, up top.
+  const queue = (
+    <TicketsWidget
+      tickets={tickets}
+      slackChannel={slackChannel}
+      unassigned={!lowTraffic}
+    />
+  );
+
   const oldestTicket = tickets.reduce(
     (oldest, ticket) => {
       if (!oldest || ticket.created_at < oldest.created_at) {
@@ -182,6 +192,7 @@ async function TicketsSection({
 
       <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-4 py-2">
         <div className="col-span-3 flex flex-col gap-4">
+          {lowTraffic && queue}
           {session?.user && (
             <AssignedTicketsWidget
               slackId={slackId}
@@ -189,10 +200,7 @@ async function TicketsSection({
               slackChannel={slackChannel}
             />
           )}
-          <UnassignedTicketsWidget
-            tickets={tickets}
-            slackChannel={slackChannel}
-          />
+          {!lowTraffic && queue}
         </div>
       </div>
     </>
@@ -211,7 +219,7 @@ function TicketsSectionFallback() {
       <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-4 py-2">
         <div className="col-span-3 flex flex-col gap-4">
           <AssignedTicketsWidget />
-          <UnassignedTicketsWidget />
+          <TicketsWidget unassigned={true} />
         </div>
       </div>
     </>
