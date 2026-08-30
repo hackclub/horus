@@ -152,6 +152,18 @@ async function TicketsSection({
     else if (ticket.status === "IN_PROGRESS") userStats.inProgress++;
   }
 
+  const lowTraffic =
+    session?.preferences?.lowTrafficHosts?.includes(selectedHost) ?? false;
+
+  // Low traffic instances have a short enough queue to show it whole, up top.
+  const queue = (
+    <TicketsWidget
+      tickets={tickets}
+      slackChannel={slackChannel}
+      unassigned={!lowTraffic}
+    />
+  );
+
   const oldestTicket = tickets.reduce(
     (oldest, ticket) => {
       if (!oldest || ticket.created_at < oldest.created_at) {
@@ -180,6 +192,7 @@ async function TicketsSection({
 
       <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-4 py-2">
         <div className="col-span-3 flex flex-col gap-4">
+          {lowTraffic && queue}
           {session?.user && (
             <AssignedTicketsWidget
               slackId={slackId}
@@ -187,11 +200,7 @@ async function TicketsSection({
               slackChannel={slackChannel}
             />
           )}
-          <TicketsWidget
-            tickets={tickets}
-            slackChannel={slackChannel}
-            unassigned={true}
-          />
+          {!lowTraffic && queue}
         </div>
       </div>
     </>

@@ -286,7 +286,9 @@ export function TicketsWidget({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <h1 className="text-lg">Unassigned queue</h1>
+          <h1 className="text-lg">
+            {unassigned ? "Unassigned queue" : "Ticket queue"}
+          </h1>
           <Button
             className={"mt-2"}
             onClick={() =>
