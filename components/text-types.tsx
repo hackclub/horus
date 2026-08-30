@@ -1,6 +1,5 @@
 "use client";
 
-import { fetchNephthysStats } from "@/app/actions/nephthys";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 

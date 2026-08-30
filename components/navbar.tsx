@@ -1,6 +1,5 @@
 "use client";
 
-import { FlameIcon } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";

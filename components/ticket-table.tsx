@@ -254,7 +254,9 @@ export function TicketsWidget({
   const filteredTickets = useMemo(() => {
     switch (sortBy) {
       case "created_at":
-        return unassignedTickets.sort((a, b) => a.created_at - b.created_at);
+        return unassignedTickets.sort(
+          (a, b) => Number(a.created_at) - Number(b.created_at),
+        );
       case "author": {
         const counts = new Map<string, number>();
         for (const t of unassignedTickets) {

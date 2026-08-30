@@ -7,7 +7,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Progress, ProgressLabel, ProgressValue } from "./ui/progress";
 
 export function StreakNavbar({ streakValue }: { streakValue: number }) {
   const streakEnabled = useFeatureFlagEnabled("streak", false);
