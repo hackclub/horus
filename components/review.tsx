@@ -161,7 +161,7 @@ function TicketCard({
       <div className="px-4 col-span-8">
         <h1 className="text-[15px]">{ticket.title}</h1>
         <p className={cn(selected ? "line-clamp-3" : "line-clamp-2")}>
-          "i dont have ts data yet :(((("
+          
         </p>
       </div>
 
