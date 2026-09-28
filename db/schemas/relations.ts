@@ -11,10 +11,12 @@ import {
   verification,
 } from "./auth-schema";
 import {
+  ai_settings,
   instance,
   marmalade_data,
   marmalade_key,
   nephthys_host,
+  nephthys_key,
 } from "./instance-schema";
 
 export const relations = defineRelations(
@@ -32,6 +34,8 @@ export const relations = defineRelations(
     nephthys_host,
     marmalade_data,
     marmalade_key,
+    nephthys_key,
+    ai_settings,
   },
   (r) => ({
     // auth-schema.ts
@@ -105,6 +109,16 @@ export const relations = defineRelations(
         to: r.instance.id,
       }),
       user: r.one.user({ from: r.marmalade_key.userId, to: r.user.id }),
+    },
+    nephthys_key: {
+      instance: r.one.instance({
+        from: r.nephthys_key.instanceId,
+        to: r.instance.id,
+      }),
+      user: r.one.user({ from: r.nephthys_key.userId, to: r.user.id }),
+    },
+    ai_settings: {
+      user: r.one.user({ from: r.ai_settings.userId, to: r.user.id }),
     },
   }),
 );

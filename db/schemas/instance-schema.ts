@@ -62,3 +62,42 @@ export const marmalade_key = pgTable(
   },
   (t) => [unique().on(t.instanceId, t.userId)],
 );
+
+// Nephthys API keys are per instance (a key for one host doesn't work on
+// another), so one row per user per instance. The key unlocks Slack message
+// content, so it's stored encrypted and only ever used server-side.
+export const nephthys_key = pgTable(
+  "nephthys_key",
+  {
+    keyId: text("key_id").primaryKey(),
+    instanceId: text("instance_id")
+      .notNull()
+      .references(() => instance.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    apiKey: text("api_key").notNull(),
+    keyHint: text("key_hint").notNull(), // censored, safe to show
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (t) => [unique().on(t.instanceId, t.userId)],
+);
+
+// Per-user Hack Club AI (ai.hackclub.com) key and model choice.
+export const ai_settings = pgTable("ai_settings", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  apiKey: text("api_key").notNull(),
+  keyHint: text("key_hint").notNull(),
+  model: text("model"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});

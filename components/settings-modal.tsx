@@ -17,7 +17,13 @@ import { setMarmaladeApiKey } from "@/app/actions/marmalade";
 import { updatePreferences } from "@/app/actions/preferences";
 import { authClient } from "@/lib/auth-client";
 import { isErrorResponse } from "@/lib/errors";
+import {
+  OPEN_PREFERENCES_EVENT,
+  type PreferencesTab,
+} from "@/lib/preferences-events";
 import { cn } from "@/lib/utils";
+import { AiPanel } from "./preferences/ai-panel";
+import { NephthysKeysPanel } from "./preferences/nephthys-keys-panel";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { CogIcon } from "./ui/cog";
@@ -38,7 +44,95 @@ import {
 } from "./ui/select";
 import { toast } from "./ui/toast";
 
+const TABS: { id: PreferencesTab; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "keys", label: "Nephthys Keys" },
+  { id: "ai", label: "AI" },
+];
+
 export function SettingsModal() {
+  const { data: session, isPending } = authClient.useSession();
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<PreferencesTab>("general");
+
+  useEffect(() => {
+    function onOpen(event: Event) {
+      setTab((event as CustomEvent<PreferencesTab>).detail || "general");
+      setOpen(true);
+    }
+    window.addEventListener(OPEN_PREFERENCES_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_PREFERENCES_EVENT, onOpen);
+  }, []);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button
+            size="icon-xl"
+            variant="outline"
+            disabled={isPending}
+            aria-label="Preferences"
+          >
+            <CogIcon size={24} className="text-muted-foreground" />
+          </Button>
+        }
+      />
+      <DialogContent className="md:min-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Preferences</DialogTitle>
+        </DialogHeader>
+
+        <div
+          className="flex flex-row border-b -mt-2"
+          role="tablist"
+          aria-label="Preference sections"
+        >
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                "p-3 border-b-3 border-b-transparent text-muted-foreground cursor-pointer",
+                tab === t.id && "border-b-primary text-foreground",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div role="tabpanel">
+          {tab === "general" ? (
+            <GeneralPanel />
+          ) : !session?.user ? (
+            <SettingCallout
+              type={"default"}
+              icon={<InfoIcon size={24} />}
+              text="Sign in to connect your keys"
+              description="Keys are saved to your account, so you need to be signed in first."
+            />
+          ) : tab === "keys" ? (
+            <NephthysKeysPanel />
+          ) : (
+            <AiPanel />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type selectItem = {
+  label: string;
+  value: string;
+  slug: string;
+};
+
+function GeneralPanel() {
   const { data: session, isPending, refetch } = authClient.useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [userInstances, setUserInstances] = useState<selectItem[]>([]);
@@ -88,11 +182,6 @@ export function SettingsModal() {
     await refetch();
     setIsLoading(false);
   }
-  type selectItem = {
-    label: string;
-    value: string;
-    slug: string;
-  };
 
   useEffect(() => {
     async function fetchUserInstances() {
@@ -159,166 +248,151 @@ export function SettingsModal() {
   }
 
   return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <Button size="icon-xl" variant="outline" disabled={isPending}>
-            <CogIcon size={24} className="text-muted-foreground" />
-          </Button>
-        }
-      />
-      <DialogContent className="md:min-w-xl ">
-        <DialogHeader>
-          <DialogTitle>Preferences</DialogTitle>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-6">
-          <SettingContainer>
-            <SettingHeader
-              title="Data Collection"
-              description="I use Posthog to collect data so I can improve this faster, you can of course opt-out here if you wish! <3"
-            />
-            <Button
-              className="gap-2"
-              onClick={() => TogglePosthogCollection()}
-              disabled={isLoading}
-            >
-              {posthog.has_opted_in_capturing() ? "Opt Out" : "Opt In"}
-              {posthog.has_opted_in_capturing() ? (
-                <LockKeyhole size={12} />
-              ) : (
-                <UnlockKeyhole size={12} />
-              )}
-            </Button>
-          </SettingContainer>
-          <SettingContainer>
-            <SettingHeader
-              title="Slack Deeplinking"
-              description="Enable or disable Slack deeplinking, disable this if you aren't using the Slack app, works on desktop and mobile"
-            />
-            <Button
-              className="gap-2"
-              onClick={() => ToggleDeeplinking()}
-              disabled={isLoading}
-            >
-              {session?.preferences?.isSlackDeeplinkingEnabled
-                ? "Disable Deeplinking"
-                : "Enable Deeplinking"}
-              {session?.preferences?.isSlackDeeplinkingEnabled ? (
-                <LockKeyhole size={12} />
-              ) : (
-                <UnlockKeyhole size={12} />
-              )}
-            </Button>
-          </SettingContainer>
-
-          {!isPending && userInstances.length === 0 ? (
-            <SettingCallout
-              type={"destructive"}
-              icon={<MailWarning size={24} />}
-              text="You are not a member of any instances"
-              description="Please contact an admin to add you, if you are unsure of who to contact, reach out to @Simon K on Slack or send a message in the #horus channel! :)"
-            />
+    <div className="flex flex-col gap-6">
+      <SettingContainer>
+        <SettingHeader
+          title="Data Collection"
+          description="I use Posthog to collect data so I can improve this faster, you can of course opt-out here if you wish! <3"
+        />
+        <Button
+          className="gap-2"
+          onClick={() => TogglePosthogCollection()}
+          disabled={isLoading}
+        >
+          {posthog.has_opted_in_capturing() ? "Opt Out" : "Opt In"}
+          {posthog.has_opted_in_capturing() ? (
+            <LockKeyhole size={12} />
           ) : (
-            <>
-              <SettingCallout
-                type={"default"}
-                icon={<InfoIcon size={24} />}
-                text="Theese settings require being a member of the instance"
-                description="If you are unsure of who to contact, please reach out to @Simon K on Slack or send a message in the #horus channel! :)"
+            <UnlockKeyhole size={12} />
+          )}
+        </Button>
+      </SettingContainer>
+      <SettingContainer>
+        <SettingHeader
+          title="Slack Deeplinking"
+          description="Enable or disable Slack deeplinking, disable this if you aren't using the Slack app, works on desktop and mobile"
+        />
+        <Button
+          className="gap-2"
+          onClick={() => ToggleDeeplinking()}
+          disabled={isLoading}
+        >
+          {session?.preferences?.isSlackDeeplinkingEnabled
+            ? "Disable Deeplinking"
+            : "Enable Deeplinking"}
+          {session?.preferences?.isSlackDeeplinkingEnabled ? (
+            <LockKeyhole size={12} />
+          ) : (
+            <UnlockKeyhole size={12} />
+          )}
+        </Button>
+      </SettingContainer>
+
+      {!isPending && userInstances.length === 0 ? (
+        <SettingCallout
+          type={"destructive"}
+          icon={<MailWarning size={24} />}
+          text="You are not a member of any instances"
+          description="Please contact an admin to add you, if you are unsure of who to contact, reach out to @Simon K on Slack or send a message in the #horus channel! :)"
+        />
+      ) : (
+        <>
+          <SettingCallout
+            type={"default"}
+            icon={<InfoIcon size={24} />}
+            text="Theese settings require being a member of the instance"
+            description="If you are unsure of who to contact, please reach out to @Simon K on Slack or send a message in the #horus channel! :)"
+          />
+          <SettingContainer>
+            <Card className="p-4">
+              <SettingHeader
+                title="Selected Instance"
+                description="Select the instance to modify, this applies to all settings below."
               />
-              <SettingContainer>
-                <Card className="p-4">
-                  <SettingHeader
-                    title="Selected Instance"
-                    description="Select the instance to modify, this applies to all settings below."
-                  />
-                  <Select
-                    items={userInstances}
-                    onValueChange={(value) => {
-                      setSelectedInstance(value);
-                    }}
-                    defaultValue={userInstances[0]?.value}
-                  >
-                    <SelectTrigger
-                      className="w-full"
-                      disabled={isLoading || userInstances.length === 0}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {userInstances.map((instance) => (
-                        <SelectItem key={instance.value} value={instance.value}>
-                          {instance.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Card>
-              </SettingContainer>
-              {marmFlagEnabled && (
-                <SettingContainer>
-                  <SettingHeader
-                    title="Marmalade API Key (Jelly)"
-                    description="Marmalade is used to fetch your mailboxes and messages, you need one API key for each instance."
-                  />
-                  <div className="flex flex-row gap-2 mt-2">
-                    <Input
-                      placeholder="Enter API Key"
-                      id="apiKey"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      type="password"
-                      disabled={isLoading || userInstances.length === 0}
-                    />
-                    <Button
-                      disabled={
-                        isLoading ||
-                        userInstances.length === 0 ||
-                        !apiKey ||
-                        apiKey.length < 1
-                      }
-                      onClick={handleSaveApiKey}
-                    >
-                      Save
-                      <SaveIcon size={10} />
-                    </Button>
-                    <Button
-                      variant="link"
-                      onClick={() => OpenMarmaladeAPIKeyPage()}
-                      disabled={isLoading}
-                    >
-                      Get API Key
-                      <MoveUpRight size={10} />
-                    </Button>
-                  </div>
-                </SettingContainer>
-              )}
-              <SettingContainer>
-                <SettingHeader
-                  title="Low Traffic Hosts"
-                  description="Add hosts here to get an alternative interface more optimization for low-traffic instances."
+              <Select
+                items={userInstances}
+                onValueChange={(value) => {
+                  setSelectedInstance(value);
+                }}
+                defaultValue={userInstances[0]?.value}
+              >
+                <SelectTrigger
+                  className="w-full"
+                  disabled={isLoading || userInstances.length === 0}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {userInstances.map((instance) => (
+                    <SelectItem key={instance.value} value={instance.value}>
+                      {instance.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Card>
+          </SettingContainer>
+          {marmFlagEnabled && (
+            <SettingContainer>
+              <SettingHeader
+                title="Marmalade API Key (Jelly)"
+                description="Marmalade is used to fetch your mailboxes and messages, you need one API key for each instance."
+              />
+              <div className="flex flex-row gap-2 mt-2">
+                <Input
+                  placeholder="Enter API Key"
+                  id="apiKey"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  type="password"
+                  disabled={isLoading || userInstances.length === 0}
                 />
                 <Button
-                  className="gap-2"
-                  onClick={() => ToggleLowTrafficHost()}
-                  disabled={isLoading || !selectedHost}
+                  disabled={
+                    isLoading ||
+                    userInstances.length === 0 ||
+                    !apiKey ||
+                    apiKey.length < 1
+                  }
+                  onClick={handleSaveApiKey}
                 >
-                  {selectedHost && lowTrafficHosts.includes(selectedHost)
-                    ? "Disable"
-                    : "Enable"}
-                  {selectedHost && lowTrafficHosts.includes(selectedHost) ? (
-                    <LockKeyhole size={12} />
-                  ) : (
-                    <UnlockKeyhole size={12} />
-                  )}
+                  Save
+                  <SaveIcon size={10} />
                 </Button>
-              </SettingContainer>
-            </>
+                <Button
+                  variant="link"
+                  onClick={() => OpenMarmaladeAPIKeyPage()}
+                  disabled={isLoading}
+                >
+                  Get API Key
+                  <MoveUpRight size={10} />
+                </Button>
+              </div>
+            </SettingContainer>
           )}
-        </div>
-      </DialogContent>
-    </Dialog>
+          <SettingContainer>
+            <SettingHeader
+              title="Low Traffic Hosts"
+              description="Add hosts here to get an alternative interface more optimization for low-traffic instances."
+            />
+            <Button
+              className="gap-2"
+              onClick={() => ToggleLowTrafficHost()}
+              disabled={isLoading || !selectedHost}
+            >
+              {selectedHost && lowTrafficHosts.includes(selectedHost)
+                ? "Disable"
+                : "Enable"}
+              {selectedHost && lowTrafficHosts.includes(selectedHost) ? (
+                <LockKeyhole size={12} />
+              ) : (
+                <UnlockKeyhole size={12} />
+              )}
+            </Button>
+          </SettingContainer>
+        </>
+      )}
+    </div>
   );
 }
 

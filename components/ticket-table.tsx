@@ -5,19 +5,27 @@ import {
   useClientDataSource,
 } from "@1771technologies/lytenyte-core";
 import type { CellRendererParams } from "@1771technologies/lytenyte-core/types";
-import { ArrowUpRight, MailWarning } from "lucide-react";
+import { ArrowUpRight, Eye, MailWarning, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getCachetUsers } from "@/app/actions/cachet";
 import { LyteNyte } from "@/components/lytenyte-core";
 import { authClient } from "@/lib/auth-client";
+import {
+  slackToPlainText,
+  ticketDisplayTitle,
+  ticketMatches,
+  ticketStatus,
+} from "@/lib/tickets";
 import useWindowDimensions from "@/lib/use-window-dimensions";
 import { cn, relativeTime, SlackMessageLink } from "@/lib/utils";
 import type { CachetUser } from "@/types/cachet";
 import type { Ticket } from "@/types/nephthys";
+import { useTicketPeek } from "./ticket-peek";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader } from "./ui/card";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
 import {
   Select,
   SelectContent,
@@ -64,6 +72,7 @@ function TicketTable({
   });
 
   const windowSize = useWindowDimensions();
+  const peek = useTicketPeek();
 
   const ticketsHeader: Grid.Column<Spec>[] = [
     {
@@ -78,19 +87,39 @@ function TicketTable({
       width: windowSize.width > 720 ? 420 : 300,
       cellRenderer: ({ api, row }) => {
         if (!api.rowIsLeaf(row) || !row.data) return;
+        const ticket = row.data;
+        const title = ticketDisplayTitle(ticket);
         return (
-          <a
-            href={SlackMessageLink(
-              slackChannel || "N/A",
-              row.data.message_ts,
-              deepLinking,
+          <span className="flex flex-row items-center gap-1 min-w-0">
+            {peek && (
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                onClick={() => peek.open(ticket)}
+                aria-label={`Peek at ticket #${ticket.id}`}
+                title="Peek"
+              >
+                <Eye />
+              </Button>
             )}
-            rel="noopener noreferrer"
-            target={!deepLinking ? "_blank" : "_self"}
-            className="text-primary underline"
-          >
-            {row.data.title}
-          </a>
+            <a
+              href={SlackMessageLink(
+                slackChannel || "N/A",
+                ticket.message_ts,
+                deepLinking,
+              )}
+              rel="noopener noreferrer"
+              target={!deepLinking ? "_blank" : "_self"}
+              className="text-primary underline truncate"
+              title={
+                ticket.description
+                  ? slackToPlainText(ticket.description).slice(0, 400)
+                  : title
+              }
+            >
+              {title}
+            </a>
+          </span>
         );
       },
     },
@@ -236,9 +265,14 @@ export function TicketsWidget({
 }) {
   const { data: session } = authClient.useSession();
   const [sortBy, setSortBy] = useState<string>("created_at");
-  const unassignedTickets =
-    (unassigned ? tickets?.filter((ticket) => !ticket.assigned_to) : tickets) ||
-    [];
+  const [query, setQuery] = useState("");
+  const unassignedTickets = useMemo(
+    () =>
+      (unassigned
+        ? tickets?.filter((ticket) => !ticket.assigned_to)
+        : tickets) || [],
+    [tickets, unassigned],
+  );
 
   const sortByOptions = [
     {
@@ -252,18 +286,23 @@ export function TicketsWidget({
   ];
 
   const filteredTickets = useMemo(() => {
+    // Copy first: sort() is in place and these arrays come from props.
+    const matching = unassignedTickets.filter((ticket) =>
+      ticketMatches(ticket, query),
+    );
     switch (sortBy) {
       case "created_at":
-        return unassignedTickets.sort(
-          (a, b) => Number(a.created_at) - Number(b.created_at),
+        return matching.sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
         );
       case "author": {
         const counts = new Map<string, number>();
-        for (const t of unassignedTickets) {
+        for (const t of matching) {
           const author = t.opened_by?.username || "";
           counts.set(author, (counts.get(author) || 0) + 1);
         }
-        return unassignedTickets.sort((a, b) => {
+        return matching.sort((a, b) => {
           const aAuthor = a.opened_by?.username || "";
           const bAuthor = b.opened_by?.username || "";
 
@@ -276,13 +315,11 @@ export function TicketsWidget({
         });
       }
       case "status":
-        return unassignedTickets.sort((a, b) =>
-          a.status.localeCompare(b.status),
-        );
+        return matching.sort((a, b) => a.status.localeCompare(b.status));
       default:
-        return unassignedTickets;
+        return matching;
     }
-  }, [unassignedTickets, sortBy]);
+  }, [unassignedTickets, sortBy, query]);
 
   return (
     <Card>
@@ -291,26 +328,42 @@ export function TicketsWidget({
           <h1 className="text-lg">
             {unassigned ? "Unassigned queue" : "Ticket queue"}
           </h1>
-          <Button
-            className={"mt-2"}
-            onClick={() =>
-              OpenRandomTicket(
-                unassignedTickets,
-                slackChannel,
-                session?.preferences?.isSlackDeeplinkingEnabled,
-              )
-            }
-            variant={"outline"}
-          >
-            Open random
-            <ArrowUpRight />
-          </Button>
+          <div className="flex flex-row flex-wrap gap-2 mt-2">
+            <Button
+              onClick={() =>
+                OpenRandomTicket(
+                  unassignedTickets,
+                  slackChannel,
+                  session?.preferences?.isSlackDeeplinkingEnabled,
+                )
+              }
+              variant={"outline"}
+            >
+              Open random
+              <ArrowUpRight />
+            </Button>
+            <InputGroup className="w-56">
+              <InputGroupInput
+                type="search"
+                placeholder="Search tickets"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search tickets"
+              />
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+            </InputGroup>
+          </div>
         </div>
         <div className="text-right space-y-2 pt-1">
           <Badge
             variant={unassignedTickets.length > 50 ? "destructive" : "default"}
           >
-            {unassignedTickets.length} Tickets
+            {query
+              ? `${filteredTickets.length} of ${unassignedTickets.length}`
+              : unassignedTickets.length}{" "}
+            Tickets
           </Badge>
           <Select
             value={sortBy}
@@ -354,22 +407,7 @@ function IDCellRenderer({ api, row }: CellRendererParams<Spec>) {
 function StatusCellRenderer({ api, row }: CellRendererParams<Spec>) {
   if (!api.rowIsLeaf(row) || !row.data) return;
 
-  const statusMap = {
-    IN_PROGRESS: {
-      text: "In Progress",
-      variant: "default",
-    },
-    OPEN: {
-      text: "Waiting",
-      variant: "orange",
-    },
-    CLOSED: {
-      text: "Closed",
-      variant: "destructive",
-    },
-  } as const;
-
-  const status = statusMap[row.data.status as keyof typeof statusMap];
+  const status = ticketStatus(row.data.status);
 
   return (
     <Badge variant={status?.variant || "default"}>

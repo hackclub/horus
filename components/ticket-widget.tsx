@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { ticketDisplayTitle } from "@/lib/tickets";
 import { caughtUpText, cn, SlackMessageLink } from "@/lib/utils";
 import type { Ticket } from "@/types/nephthys";
 import { Button } from "./ui/button";
@@ -121,7 +122,7 @@ export function TicketWidget({
             <p className="text-muted-foreground">
               slow response · #{ticket?.id}
             </p>
-            <p className="text-lg">{ticket?.title}</p>
+            <p className="text-lg">{ticketDisplayTitle(ticket)}</p>
           </CardContent>
           <CardAction className="w-full px-4 mt-auto">
             <Button onClick={openTicket} className="w-full text-md" size="lg">

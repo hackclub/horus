@@ -24,9 +24,16 @@ export type Ticket = {
   assigned_to: NephthysUser | null;
   reopened_by: NephthysUser | null;
   team_tags: string[];
+  category_tag?: string | null;
   created_at: string;
   closed_at: string | null;
   message_ts: string;
+  /**
+   * The opening Slack message. Nephthys only sends this when the request
+   * carries a valid per-instance API key, and it falls under the Slack
+   * scraping policy: never make it public, never train on it.
+   */
+  description?: string;
 };
 
 export type TimeDurations =

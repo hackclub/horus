@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { slackToPlainText, ticketDisplayTitle } from "@/lib/tickets";
 import { cn, OpenSlackLink, relativeTime, SlackMessageLink } from "@/lib/utils";
 import type { ErrorResponse } from "@/types/error";
 import type { Ticket } from "@/types/nephthys";
+import { useTicketPeek } from "./ticket-peek";
 import { Avatar, AvatarImage } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 import { Card } from "./ui/card";
@@ -51,6 +53,8 @@ export function TicketSection({
   const containerRef = useRef<HTMLDivElement>(null);
   const [rawSelected, setSelected] = useState(0);
   const { data: session } = authClient.useSession();
+  const peek = useTicketPeek();
+  const peekOpen = peek?.isOpen ?? false;
 
   const list = "error" in tickets ? [] : tickets;
   const max = list.length - 1;
@@ -59,15 +63,22 @@ export function TicketSection({
 
   useEffect(() => {
     const keydownHandler = (e: KeyboardEvent) => {
-      if (!list.length) return;
+      if (!list.length || peekOpen) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+      // Space and Enter belong to a focused button or link.
+      const onControl = !!target?.closest("button, a");
 
-      if (e.key === "ArrowUp") {
+      if (e.key === " " && peek && !onControl) {
+        e.preventDefault();
+        peek.open(list[selected]);
+      } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setSelected((prev) => clamp(prev - 1, max));
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelected((prev) => clamp(prev + 1, max));
-      } else if (e.key === "Enter") {
+      } else if (e.key === "Enter" && !onControl) {
         e.preventDefault();
         OpenSlackLink(
           SlackMessageLink(slackChannel, list[selected]?.message_ts, deeplink),
@@ -81,7 +92,7 @@ export function TicketSection({
     return () => {
       window.removeEventListener("keydown", keydownHandler);
     };
-  }, [list, max, selected, slackChannel, deeplink]);
+  }, [list, max, selected, slackChannel, deeplink, peek, peekOpen]);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -122,7 +133,11 @@ export function TicketSection({
             key={slot}
             ticket={list[index]}
             offset={index - selected}
-            onClick={() => setSelected(index)}
+            onClick={() =>
+              index === selected && peek
+                ? peek.open(list[index])
+                : setSelected(index)
+            }
           />
         ),
       )}
@@ -159,10 +174,25 @@ function TicketCard({
       onClick={onClick}
     >
       <div className="px-4 col-span-8">
-        <h1 className="text-[15px]">{ticket.title}</h1>
-        <p className={cn(selected ? "line-clamp-3" : "line-clamp-2")}>
-          
-        </p>
+        <h1 className="text-[15px] line-clamp-1">
+          {ticketDisplayTitle(ticket)}
+        </h1>
+        {ticket.description ? (
+          <p
+            className={cn(
+              "text-muted-foreground",
+              selected ? "line-clamp-3" : "line-clamp-2",
+            )}
+          >
+            {slackToPlainText(ticket.description)}
+          </p>
+        ) : (
+          ticket.team_tags.length > 0 && (
+            <p className="text-muted-foreground line-clamp-1">
+              {ticket.team_tags.join(" · ")}
+            </p>
+          )
+        )}
       </div>
 
       <Badge
