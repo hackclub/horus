@@ -11,6 +11,7 @@ import {
   Square,
   TriangleAlert,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -51,6 +52,8 @@ export type PeekViewer = {
   instanceName: string;
   slackChannel: string;
   access: TicketAccess;
+  /** Instance admin: may add or replace the Nephthys key in Settings. */
+  canManageKey: boolean;
   aiEnabled: boolean;
 };
 
@@ -95,6 +98,14 @@ export function TicketPeekProvider({
     openPreferences(tab);
   }, []);
 
+  const router = useRouter();
+  const goToKeySettings = useCallback(async () => {
+    setIsOpen(false);
+    // Settings manages the active instance, so switch to this one first.
+    await authClient.organization.setActive({ organizationSlug: viewer.slug });
+    router.push("/dashboard/settings#nephthys");
+  }, [router, viewer.slug]);
+
   const value = useMemo(
     () => ({ viewer, open, isOpen }),
     [viewer, open, isOpen],
@@ -112,6 +123,7 @@ export function TicketPeekProvider({
               ticket={ticket}
               viewer={viewer}
               goToPreferences={goToPreferences}
+              goToKeySettings={goToKeySettings}
             />
           )}
         </DialogContent>
@@ -130,10 +142,12 @@ function PeekBody({
   ticket,
   viewer,
   goToPreferences,
+  goToKeySettings,
 }: {
   ticket: Ticket;
   viewer: PeekViewer;
   goToPreferences: (tab: PreferencesTab) => void;
+  goToKeySettings: () => void;
 }) {
   const { data: session } = authClient.useSession();
   const deepLinking = session?.preferences?.isSlackDeeplinkingEnabled;
@@ -178,8 +192,7 @@ function PeekBody({
       <MessageSection
         ticket={ticket}
         viewer={viewer}
-        signedIn={!!session}
-        goToPreferences={goToPreferences}
+        goToKeySettings={goToKeySettings}
       />
 
       {session && (
@@ -244,13 +257,11 @@ function Notice({
 function MessageSection({
   ticket,
   viewer,
-  signedIn,
-  goToPreferences,
+  goToKeySettings,
 }: {
   ticket: Ticket;
   viewer: PeekViewer;
-  signedIn: boolean;
-  goToPreferences: (tab: PreferencesTab) => void;
+  goToKeySettings: () => void;
 }) {
   if (ticket.description?.trim()) {
     return (
@@ -263,51 +274,57 @@ function MessageSection({
     );
   }
 
-  const fixKey = (label: string) => (
-    <Button size="sm" variant="outline" onClick={() => goToPreferences("keys")}>
-      <KeyRound />
-      {label}
-    </Button>
-  );
+  const name = viewer.instanceName;
+  const keyButton = (label: string) =>
+    viewer.canManageKey ? (
+      <Button size="sm" variant="outline" onClick={goToKeySettings}>
+        <KeyRound />
+        {label}
+      </Button>
+    ) : undefined;
+  const whoFixes = viewer.canManageKey
+    ? "You can fix that in Settings."
+    : "An instance admin can fix that in Settings.";
 
-  if (!signedIn) {
-    return (
-      <Notice>
-        Sign in and add your own Nephthys API key to read the message here.
-      </Notice>
-    );
+  switch (viewer.access) {
+    case "signed-out":
+      return (
+        <Notice>Sign in as a member of {name} to read the message here.</Notice>
+      );
+    case "not-member":
+      return (
+        <Notice>
+          Only members of {name} can read ticket messages in Horus.
+        </Notice>
+      );
+    case "no-key":
+      return (
+        <Notice action={keyButton("Add key")}>
+          {name} has no Nephthys API key yet, so messages are hidden. {whoFixes}
+        </Notice>
+      );
+    case "key-rejected":
+      return (
+        <Notice action={keyButton("Replace key")}>
+          {name}&apos;s Nephthys key doesn&apos;t work anymore (it was deleted,
+          or the instance moved hosts), so messages are hidden. {whoFixes}
+        </Notice>
+      );
+    case "unavailable":
+      return (
+        <Notice>
+          Nephthys didn&apos;t answer the request with the instance key just
+          now, so messages are hidden. Refresh to try again.
+        </Notice>
+      );
+    case "full":
+      return (
+        <Notice>
+          Nephthys didn&apos;t send this ticket&apos;s message. The instance
+          might need updating before it shares messages with API keys.
+        </Notice>
+      );
   }
-  if (viewer.access === "key-rejected") {
-    return (
-      <Notice action={fixKey("Replace key")}>
-        Your saved Nephthys key for {viewer.instanceName} doesn&apos;t work
-        anymore (it was deleted, or the instance moved hosts), so messages are
-        hidden.
-      </Notice>
-    );
-  }
-  if (viewer.access === "unavailable") {
-    return (
-      <Notice>
-        Nephthys didn&apos;t answer the request with your key just now, so
-        messages are hidden. Refresh to try again.
-      </Notice>
-    );
-  }
-  if (viewer.access === "full") {
-    return (
-      <Notice>
-        Nephthys didn&apos;t send this ticket&apos;s message. The instance might
-        need updating before it shares messages with API keys.
-      </Notice>
-    );
-  }
-  return (
-    <Notice action={fixKey("Add key")}>
-      Nephthys only shows the full message to people with their own API key for{" "}
-      {viewer.instanceName}.
-    </Notice>
-  );
 }
 
 const TASKS: { id: AiTicketTask; label: string }[] = [

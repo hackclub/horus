@@ -1,7 +1,7 @@
 // Lets any component open the Preferences dialog (owned by the navbar) on a
-// given tab, e.g. "add your Nephthys key" links inside a ticket peek.
+// given tab, e.g. the "Set up AI" button inside a ticket peek.
 
-export type PreferencesTab = "general" | "keys" | "ai";
+export type PreferencesTab = "general" | "ai";
 
 export const OPEN_PREFERENCES_EVENT = "horus:open-preferences";
 

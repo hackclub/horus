@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ba0051a6-fa70-4b4b-8549-6e2daefd162c",
+  "id": "85fbdda3-f7e3-43e8-b52d-c04558582099",
   "prevIds": ["559c9ab5-128e-4228-a055-9693a18f465c"],
   "ddl": [
     {
@@ -1415,33 +1415,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "key_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "nephthys_key"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
       "name": "instance_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "nephthys_key"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "nephthys_key"
@@ -1481,6 +1455,19 @@
       "generated": null,
       "identity": null,
       "name": "host",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "nephthys_key"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "set_by",
       "entityType": "columns",
       "schema": "public",
       "table": "nephthys_key"
@@ -1876,13 +1863,13 @@
     },
     {
       "nameExplicit": false,
-      "columns": ["user_id"],
+      "columns": ["set_by"],
       "schemaTo": "public",
       "tableTo": "user",
       "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "nephthys_key_user_id_user_id_fkey",
+      "onDelete": "SET NULL",
+      "name": "nephthys_key_set_by_user_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "nephthys_key"
@@ -2000,7 +1987,7 @@
       "entityType": "pks"
     },
     {
-      "columns": ["key_id"],
+      "columns": ["instance_id"],
       "nameExplicit": false,
       "name": "nephthys_key_pkey",
       "schema": "public",
@@ -2015,15 +2002,6 @@
       "entityType": "uniques",
       "schema": "public",
       "table": "marmalade_key"
-    },
-    {
-      "nameExplicit": false,
-      "columns": ["instance_id", "user_id"],
-      "nullsNotDistinct": false,
-      "name": "nephthys_key_instance_id_user_id_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "nephthys_key"
     },
     {
       "nameExplicit": false,

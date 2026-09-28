@@ -14,8 +14,8 @@ import {
   type StreamEvent,
 } from "@/lib/hackclub-ai";
 import { getTicket, isInvalidApiKeyError } from "@/lib/nephthys";
-import { getAiConfig, getNephthysKey } from "@/lib/user-keys";
-import { getInstanceBySlug } from "@/lib/viewer";
+import { getAiConfig } from "@/lib/user-keys";
+import { getInstanceBySlug, resolveViewerKey } from "@/lib/viewer";
 import type { Ticket } from "@/types/nephthys";
 
 export const maxDuration = 60;
@@ -33,8 +33,9 @@ type Task = keyof typeof TASKS;
  * or `{"type":"error","message":…}` if the stream breaks midway.
  *
  * The client only sends a ticket id. The message itself is fetched here with
- * the viewer's own Nephthys key, so this can't be used as a generic prompt
- * proxy and the text never has to round-trip through the browser.
+ * the instance's Nephthys key (members only), so this can't be used as a
+ * generic prompt proxy and the text never has to round-trip through the
+ * browser.
  */
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
@@ -73,30 +74,33 @@ export async function POST(request: Request) {
   const instance = await getInstanceBySlug(slug);
   if (!instance) return jsonError("NotFound", "Unknown instance.", 404);
 
-  const saved = await getNephthysKey(session.user.id, instance);
-  if (saved.status === "host-changed") {
+  const viewer = await resolveViewerKey(instance, session.user.id);
+  if (!viewer.key) {
+    const messages: Record<typeof viewer.access, string> = {
+      "signed-out": "Sign in first.",
+      "not-member": `Only members of ${instance.name} can use AI on its tickets, since it reads the message.`,
+      "no-key": `AI needs the ticket's message, and ${instance.name} has no Nephthys API key yet. An instance admin can add one in Settings.`,
+      "key-rejected": `${instance.name}'s Nephthys key doesn't work anymore (it was deleted, or the instance moved hosts). An instance admin can replace it in Settings.`,
+    };
     return jsonError(
-      "InvalidApiKey",
-      `${instance.name} moved to a different Nephthys host since you saved your key, so Horus won't send it there. Paste a key from the new host in Preferences → Nephthys Keys.`,
-      400,
-    );
-  }
-  if (saved.status !== "ok") {
-    return jsonError(
-      "KeyNotSet",
-      `AI needs the ticket's message. Add your Nephthys API key for ${instance.name} in Preferences → Nephthys Keys.`,
-      400,
+      viewer.access === "not-member" ? "Forbidden" : "KeyNotSet",
+      messages[viewer.access],
+      viewer.access === "not-member" ? 403 : 400,
     );
   }
 
   let ticket: Ticket;
   try {
-    ticket = await getTicket(instance.host, ticketId as number, saved.apiKey);
+    ticket = await getTicket(
+      instance.host,
+      ticketId as number,
+      viewer.key.apiKey,
+    );
   } catch (error) {
     if (isInvalidApiKeyError(error)) {
       return jsonError(
         "InvalidApiKey",
-        `${instance.name}'s Nephthys didn't accept your API key anymore. Paste a new one in Preferences → Nephthys Keys.`,
+        `${instance.name}'s Nephthys doesn't accept its saved API key anymore. An instance admin can replace it in Settings.`,
         400,
       );
     }

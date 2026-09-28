@@ -6,8 +6,10 @@ import {
   addInstanceMember,
   deleteInstance,
   removeInstanceMember,
+  removeNephthysKey,
   type SettingsData,
   searchInstanceCandidates,
+  setNephthysKey,
   transferInstance,
   updateIdentity,
   updateInstanceMemberRole,
@@ -65,6 +67,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { isErrorResponse } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
 const ORG_ROLES = ["helper", "admin", "sponsor"] as const;
@@ -216,6 +219,11 @@ function SettingsInner({ data }: { data: NonNullable<SettingsData> }) {
                 {perms.nephthysRead && (
                   <Section name="Nephthys">
                     <NephthysForm
+                      nephthys={data.nephthys}
+                      canWrite={perms.nephthysWrite}
+                      onSaved={refresh}
+                    />
+                    <NephthysKeyPanel
                       nephthys={data.nephthys}
                       canWrite={perms.nephthysWrite}
                       onSaved={refresh}
@@ -635,6 +643,146 @@ function NephthysForm({
         </div>
       )}
     </form>
+  );
+}
+
+function NephthysKeyPanel({
+  nephthys,
+  canWrite,
+  onSaved,
+}: {
+  nephthys: NonNullable<SettingsData>["nephthys"];
+  canWrite: boolean;
+  onSaved: () => void;
+}) {
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{
+    tone: "error" | "note";
+    text: string;
+  } | null>(null);
+  const { key } = nephthys;
+
+  async function save() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const result = await setNephthysKey(value);
+      if (isErrorResponse(result)) {
+        setStatus({ tone: "error", text: result.message || result.error });
+        return;
+      }
+      setValue("");
+      if (result.descriptions === false) {
+        setStatus({
+          tone: "note",
+          text: "Saved. The key works, but this Nephthys didn't send message text, so it may need updating before members see messages.",
+        });
+      }
+      onSaved();
+    } catch (e) {
+      setStatus({
+        tone: "error",
+        text: e instanceof Error ? e.message : "Couldn't save the key.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="bg-input/30 border p-4 flex flex-col gap-3">
+      <div className="flex flex-row flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-col max-w-xl">
+          <p className="text-sm font-bold">Nephthys API Key</p>
+          <p className="text-sm text-muted-foreground">
+            Lets members of this instance read full ticket messages in Horus and
+            use AI on them. Make one in{" "}
+            {nephthys.host ? (
+              <LinkHref href={`https://${nephthys.host}/lobby/api_keys`}>
+                this instance&apos;s lobby
+              </LinkHref>
+            ) : (
+              "the instance's lobby"
+            )}
+            . The key belongs to whoever made it, and message text falls under
+            the{" "}
+            <LinkHref href="https://news.hackclub.com/news/scraping-use-policy/">
+              Slack Scraping Use Policy
+            </LinkHref>
+            : Horus only shows it to signed-in members of this instance and
+            stores the key encrypted.
+          </p>
+        </div>
+        {key?.hostChanged ? (
+          <Badge variant="outline">Host changed, add it again</Badge>
+        ) : key ? (
+          <Badge variant="default" className="font-mono">
+            {key.hint}
+          </Badge>
+        ) : (
+          <Badge variant="outline">Not set</Badge>
+        )}
+      </div>
+
+      {key && (
+        <p className="text-xs text-muted-foreground">
+          {key.hostChanged
+            ? "The Nephthys host changed after this key was saved, so Horus doesn't send it anywhere. Add a key from the new host."
+            : `Set${key.setBy ? ` by ${key.setBy}` : ""} on ${new Date(key.updatedAt).toLocaleDateString()}.`}
+        </p>
+      )}
+
+      {canWrite && (
+        <form
+          className="flex flex-row gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (value.trim()) save();
+          }}
+        >
+          <Input
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={key ? "Paste a new key to replace it" : "sk_neph_..."}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            disabled={busy}
+            aria-label="Nephthys API key"
+          />
+          <Button type="submit" disabled={busy || !value.trim()}>
+            {busy ? "Checking..." : "Save key"}
+          </Button>
+          {key && (
+            <ConfirmButton
+              trigger={
+                <Button type="button" variant="destructive" disabled={busy}>
+                  Remove
+                </Button>
+              }
+              title="Remove the Nephthys key?"
+              description="Members stop seeing ticket messages and AI can't read them until someone adds a key again."
+              onConfirm={() => removeNephthysKey()}
+              onDone={onSaved}
+            />
+          )}
+        </form>
+      )}
+
+      {status && (
+        <p
+          className={cn(
+            "text-sm",
+            status.tone === "error"
+              ? "text-destructive"
+              : "text-muted-foreground",
+          )}
+        >
+          {status.text}
+        </p>
+      )}
+    </div>
   );
 }
 

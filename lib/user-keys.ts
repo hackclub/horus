@@ -4,9 +4,10 @@ import { DEFAULT_AI_MODEL } from "./ai-models";
 import { decrypt } from "./encryption";
 import { isErrorResponse } from "./errors";
 
-// Server-side reads of the keys users bring themselves. Nothing here may be
-// exported through a "use server" file or handed to a client component: the
-// decrypted values only ever leave the server as an Authorization header.
+// Server-side reads of stored keys (instance Nephthys keys, personal Hack Club
+// AI keys). Nothing here may be exported through a "use server" file or
+// handed to a client component: the decrypted values only ever leave the
+// server as an Authorization header.
 
 /** Show a key without revealing it, like Nephthys' own `sk_neph_abcd...wxyz`. */
 export function censorKey(key: string): string {
@@ -32,12 +33,13 @@ export type SavedNephthysKey =
   | { status: "host-changed" }
   | { status: "ok"; apiKey: string };
 
-export async function getNephthysKey(
-  userId: string,
-  instance: { instanceId: string; host: string },
-): Promise<SavedNephthysKey> {
+/** The instance's Nephthys key, as set by one of its admins. */
+export async function getInstanceNephthysKey(instance: {
+  instanceId: string;
+  host: string;
+}): Promise<SavedNephthysKey> {
   const row = await db.query.nephthys_key.findFirst({
-    where: { userId, instanceId: instance.instanceId },
+    where: { instanceId: instance.instanceId },
     columns: { apiKey: true, host: true },
   });
   if (!row) return { status: "none" };

@@ -23,7 +23,6 @@ import {
 } from "@/lib/preferences-events";
 import { cn } from "@/lib/utils";
 import { AiPanel } from "./preferences/ai-panel";
-import { NephthysKeysPanel } from "./preferences/nephthys-keys-panel";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { CogIcon } from "./ui/cog";
@@ -46,7 +45,6 @@ import { toast } from "./ui/toast";
 
 const TABS: { id: PreferencesTab; label: string }[] = [
   { id: "general", label: "General" },
-  { id: "keys", label: "Nephthys Keys" },
   { id: "ai", label: "AI" },
 ];
 
@@ -118,11 +116,9 @@ export function SettingsModal() {
             <SettingCallout
               type={"default"}
               icon={<InfoIcon size={24} />}
-              text="Sign in to connect your keys"
-              description="Keys are saved to your account, so you need to be signed in first."
+              text="Sign in to set up AI"
+              description="Your Hack Club AI key is saved to your account, so you need to be signed in first."
             />
-          ) : tab === "keys" ? (
-            <NephthysKeysPanel />
           ) : (
             <AiPanel />
           )}

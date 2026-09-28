@@ -11,7 +11,7 @@ import {
   getMyAiUsage,
   setAiApiKey,
   setAiModel,
-} from "@/app/actions/keys";
+} from "@/app/actions/ai";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,8 +134,9 @@ export function AiPanel() {
             Hack Club AI
           </a>{" "}
           key to get ticket summaries and reply drafts in the ticket peek, plus
-          a queue brief on each dashboard. Summaries and drafts need that
-          instance&apos;s Nephthys key too, since they read the message.
+          a queue brief on each dashboard. Summaries and drafts read the
+          ticket&apos;s message, so they work on instances you&apos;re a member
+          of once an instance admin has added a Nephthys key in Settings.
         </p>
       </div>
 

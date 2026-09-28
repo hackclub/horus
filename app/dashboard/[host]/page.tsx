@@ -140,8 +140,8 @@ async function TicketsSection({
     headers: await headers(),
   });
 
-  // With the viewer's own Nephthys key this includes message text, fetched
-  // uncached and only ever rendered for them.
+  // For members, with the instance's Nephthys key this includes message
+  // text, fetched uncached and only ever rendered for them.
   const [ticketsResult, aiEnabled] = await Promise.all([
     loadViewerTickets(instance, session?.user?.id, {
       status: "OPEN,IN_PROGRESS",
@@ -149,7 +149,10 @@ async function TicketsSection({
     session ? hasAiKey(session.user.id) : false,
   ]);
 
-  const { tickets, access } = unwrap(ticketsResult, `tickets for ${hostname}`);
+  const { tickets, access, canManageKey } = unwrap(
+    ticketsResult,
+    `tickets for ${hostname}`,
+  );
 
   const userStats = { assigned: 0, unclaimed: 0, inProgress: 0 };
   const slackId = session?.user?.slack_id;
@@ -189,6 +192,7 @@ async function TicketsSection({
         instanceName: instance.name,
         slackChannel,
         access,
+        canManageKey,
         aiEnabled,
       }}
     >

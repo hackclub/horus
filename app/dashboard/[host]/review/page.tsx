@@ -70,6 +70,7 @@ async function ReviewSection({
         instanceName: instance.name,
         slackChannel: instance.slackChannel,
         access: ticketResponse.access,
+        canManageKey: ticketResponse.canManageKey,
         aiEnabled,
       }}
     >
