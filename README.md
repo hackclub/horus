@@ -11,6 +11,9 @@ Horus centralizes your [Hack Club](https://hackclub.com) support channels and gi
 - See a live leaderboard of the staff teams and their ticket counts
 - Get statistics on how long a ticket usually is open
 - See a breakdown on tickets by their status
+- Search the queue and peek at any ticket without leaving Horus
+- Read the full ticket message with your own Nephthys API key (per instance, stored encrypted)
+- AI with your own [Hack Club AI](https://ai.hackclub.com) key: ticket summaries, reply drafts, and a queue brief that groups tickets and says what to pick next
 
 ## Hidden or upcoming features
 - [x] User and instance management for super admins
