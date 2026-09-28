@@ -56,6 +56,7 @@ async function stream(
 
   let text = "";
   let truncated = false;
+  let finished = false;
   try {
     const response = await fetch("/api/ai/ticket", {
       method: "POST",
@@ -96,12 +97,15 @@ async function stream(
           });
         } else if (line.type === "done") {
           truncated = line.truncated;
+          finished = true;
         } else if (line.type === "error") {
           throw new Error(line.message);
         }
       }
     }
 
+    // No "done" line: the server was cut off (e.g. a function time limit).
+    if (!finished) truncated = true;
     text = text.trim();
     update(
       key,
@@ -111,7 +115,9 @@ async function stream(
             status: "error",
             text,
             truncated,
-            error: "The model returned an empty answer.",
+            error: truncated
+              ? "The model used its whole budget before answering. Try again, or pick a model that doesn't think as long in Preferences → AI."
+              : "The model returned an empty answer.",
           },
     );
   } catch (error) {

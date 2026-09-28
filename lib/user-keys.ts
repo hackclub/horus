@@ -1,3 +1,4 @@
+import "server-only";
 import { db } from "@/db";
 import { DEFAULT_AI_MODEL } from "./ai-models";
 import { decrypt } from "./encryption";
@@ -25,15 +26,24 @@ function safeDecrypt(payload: string): string | null {
   }
 }
 
+export type SavedNephthysKey =
+  | { status: "none" }
+  // Saved for a different host than the instance uses now: never send it.
+  | { status: "host-changed" }
+  | { status: "ok"; apiKey: string };
+
 export async function getNephthysKey(
   userId: string,
-  instanceId: string,
-): Promise<string | null> {
+  instance: { instanceId: string; host: string },
+): Promise<SavedNephthysKey> {
   const row = await db.query.nephthys_key.findFirst({
-    where: { userId, instanceId },
-    columns: { apiKey: true },
+    where: { userId, instanceId: instance.instanceId },
+    columns: { apiKey: true, host: true },
   });
-  return row ? safeDecrypt(row.apiKey) : null;
+  if (!row) return { status: "none" };
+  if (row.host !== instance.host) return { status: "host-changed" };
+  const apiKey = safeDecrypt(row.apiKey);
+  return apiKey ? { status: "ok", apiKey } : { status: "none" };
 }
 
 export type AiConfig = { apiKey: string; model: string };
@@ -49,10 +59,7 @@ export async function getAiConfig(userId: string): Promise<AiConfig | null> {
   return { apiKey, model: row.model || DEFAULT_AI_MODEL };
 }
 
+/** Whether AI features can run for this user (a usable key is saved). */
 export async function hasAiKey(userId: string): Promise<boolean> {
-  const row = await db.query.ai_settings.findFirst({
-    where: { userId },
-    columns: { userId: true },
-  });
-  return !!row;
+  return (await getAiConfig(userId)) !== null;
 }

@@ -56,7 +56,12 @@ export function isSameOrigin(request: Request): boolean {
 export async function readJsonBody(
   request: Request,
 ): Promise<Record<string, unknown> | null> {
-  if (!request.headers.get("content-type")?.includes("application/json")) {
+  const mediaType = request.headers
+    .get("content-type")
+    ?.split(";")[0]
+    .trim()
+    .toLowerCase();
+  if (mediaType !== "application/json") {
     return null;
   }
   try {

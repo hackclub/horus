@@ -29,17 +29,24 @@ export function ticketDisplayTitle(
 
 /** Strip Slack mrkdwn control sequences so text reads cleanly on one line. */
 export function slackToPlainText(text: string): string {
-  return text
-    .replace(/<#[A-Z0-9]+\|([^<>]+)>/g, "#$1")
-    .replace(/<@[A-Z0-9]+\|([^<>]+)>/g, "@$1")
-    .replace(/<[^<>|]+\|([^<>]+)>/g, "$1")
-    .replace(/<@([A-Z0-9]+)>/g, "@$1")
-    .replace(/<#([A-Z0-9]+)>/g, "#$1")
-    .replace(/<!(here|channel|everyone)>/g, "@$1")
-    .replace(/<([^<>]+)>/g, "$1")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&");
+  return (
+    text
+      .replace(/<#[A-Z0-9]+\|([^<>]+)>/g, "#$1")
+      .replace(/<@[A-Z0-9]+\|([^<>]+)>/g, "@$1")
+      .replace(/<[^<>|]+\|([^<>]+)>/g, "$1")
+      .replace(/<@([A-Z0-9]+)>/g, "@$1")
+      .replace(/<#([A-Z0-9]+)>/g, "#$1")
+      .replace(/<!(here|channel|everyone)>/g, "@$1")
+      .replace(/<([^<>]+)>/g, "$1")
+      // *bold*, _italic_, ~strike~ and `code` markers
+      .replace(/(?<![\w*])\*([^*\n]+)\*(?![\w*])/g, "$1")
+      .replace(/(?<![\w_])_([^_\n]+)_(?![\w_])/g, "$1")
+      .replace(/(?<![\w~])~([^~\n]+)~(?![\w~])/g, "$1")
+      .replace(/`{1,3}/g, "")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&")
+  );
 }
 
 /**

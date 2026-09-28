@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "1abcd60c-c849-4522-8137-c8effe27b571",
+  "id": "ba0051a6-fa70-4b4b-8549-6e2daefd162c",
   "prevIds": ["559c9ab5-128e-4228-a055-9693a18f465c"],
   "ddl": [
     {
@@ -1468,6 +1468,19 @@
       "generated": null,
       "identity": null,
       "name": "key_hint",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "nephthys_key"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "host",
       "entityType": "columns",
       "schema": "public",
       "table": "nephthys_key"

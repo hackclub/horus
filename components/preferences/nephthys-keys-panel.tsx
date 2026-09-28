@@ -162,7 +162,14 @@ function KeyRow({
           <p className="text-xs text-muted-foreground truncate">{entry.host}</p>
         </div>
         <div className="flex flex-row items-center gap-1">
-          {entry.keyHint ? (
+          {entry.hostChanged ? (
+            <Badge
+              variant="outline"
+              title="This instance moved to a different Nephthys host after you saved the key, so it isn't used. Add a key from the new host."
+            >
+              Host changed, add again
+            </Badge>
+          ) : entry.keyHint ? (
             <Badge variant="default" title="Connected">
               <KeyRound />
               <span className="font-mono">{entry.keyHint}</span>

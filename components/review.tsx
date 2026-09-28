@@ -64,6 +64,8 @@ export function TicketSection({
   useEffect(() => {
     const keydownHandler = (e: KeyboardEvent) => {
       if (!list.length || peekOpen) return;
+      // Leave keys alone while any dialog (peek, preferences) is open.
+      if (document.querySelector("[data-slot$=dialog-content]")) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable]")) return;
       // Space and Enter belong to a focused button or link.
@@ -124,7 +126,7 @@ export function TicketSection({
   return (
     <div
       ref={containerRef}
-      className="relative h-[60vh] overflow-hidden px-1 mask-[linear-gradient(to_bottom,transparent,#000_18%,#000_82%,transparent)]"
+      className="ph-no-capture relative h-[60vh] overflow-hidden px-1 mask-[linear-gradient(to_bottom,transparent,#000_18%,#000_82%,transparent)]"
     >
       {slots.map((index, slot) =>
         index === null ? null : (

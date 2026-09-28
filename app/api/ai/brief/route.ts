@@ -12,10 +12,11 @@ import {
 } from "@/lib/api-response";
 import { auth } from "@/lib/auth";
 import { isErrorResponse } from "@/lib/errors";
-import { chat } from "@/lib/hackclub-ai";
+import { AiError, budgetFor, chat } from "@/lib/hackclub-ai";
 import { getAiConfig } from "@/lib/user-keys";
 import { getInstanceBySlug, loadViewerTickets } from "@/lib/viewer";
 import type { QueueBriefResponse } from "@/types/ai";
+import type { Ticket } from "@/types/nephthys";
 
 export const maxDuration = 60;
 
@@ -86,13 +87,13 @@ export async function POST(request: Request) {
   const included = queue.slice(0, BRIEF_TICKET_LIMIT);
   const omitted = queue.length - included.length;
 
-  let content: string;
-  try {
-    ({ content } = await chat({
+  const budget = await budgetFor(ai.model, 3_000);
+  const ask = (tickets: Ticket[]) =>
+    chat({
       apiKey: ai.apiKey,
       model: ai.model,
-      messages: briefMessages(included, omitted),
-      maxTokens: 3_000,
+      messages: briefMessages(tickets, omitted),
+      ...budget,
       responseFormat: {
         type: "json_schema",
         json_schema: {
@@ -102,9 +103,26 @@ export async function POST(request: Request) {
         },
       },
       signal: request.signal,
-    }));
+    });
+
+  let content: string;
+  let usedMessages = included.some((ticket) => !!ticket.description);
+  try {
+    ({ content } = await ask(included));
   } catch (error) {
-    return aiErrorResponse(error, "ai brief");
+    // One ticket's text tripping the proxy's filter shouldn't break the brief
+    // for everyone: try again from the (AI-written) titles alone.
+    if (!(error instanceof AiError && error.blocked && usedMessages)) {
+      return aiErrorResponse(error, "ai brief");
+    }
+    usedMessages = false;
+    try {
+      ({ content } = await ask(
+        included.map(({ description: _, ...ticket }) => ticket),
+      ));
+    } catch (retryError) {
+      return aiErrorResponse(retryError, "ai brief");
+    }
   }
 
   const brief = parseBrief(content, new Set(included.map((t) => t.id)));
@@ -121,7 +139,7 @@ export async function POST(request: Request) {
       brief,
       queueSize: queue.length,
       analysed: included.length,
-      usedMessages: included.some((ticket) => !!ticket.description),
+      usedMessages,
       model: ai.model,
       generatedAt,
     } satisfies QueueBriefResponse,

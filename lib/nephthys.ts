@@ -232,8 +232,10 @@ export async function checkNephthysKey(
   apiKey: string,
 ): Promise<NephthysKeyCheck> {
   try {
+    // Recent open tickets only: enough to see whether messages come back
+    // without pulling the whole queue.
     const tickets = await fetchNephthys<Ticket[]>(
-      "/api/tickets?status=open",
+      `/api/tickets?status=open&since=${daysAgoIsoDate(7)}`,
       host,
       { apiKey },
     );

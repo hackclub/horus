@@ -10,12 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getCachetUsers } from "@/app/actions/cachet";
 import { LyteNyte } from "@/components/lytenyte-core";
 import { authClient } from "@/lib/auth-client";
-import {
-  slackToPlainText,
-  ticketDisplayTitle,
-  ticketMatches,
-  ticketStatus,
-} from "@/lib/tickets";
+import { ticketDisplayTitle, ticketMatches, ticketStatus } from "@/lib/tickets";
 import useWindowDimensions from "@/lib/use-window-dimensions";
 import { cn, relativeTime, SlackMessageLink } from "@/lib/utils";
 import type { CachetUser } from "@/types/cachet";
@@ -111,11 +106,7 @@ function TicketTable({
               rel="noopener noreferrer"
               target={!deepLinking ? "_blank" : "_self"}
               className="text-primary underline truncate"
-              title={
-                ticket.description
-                  ? slackToPlainText(ticket.description).slice(0, 400)
-                  : title
-              }
+              title={title}
             >
               {title}
             </a>
@@ -243,7 +234,8 @@ export function AssignedTicketsWidget({
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="h-125">
+      {/* ph-no-capture: rows can carry Slack message text (see ticket-peek) */}
+      <CardContent className="h-125 ph-no-capture">
         <TicketTable
           tickets={assignedTickets}
           slackChannel={slackChannel}
@@ -387,7 +379,8 @@ export function TicketsWidget({
           </Select>
         </div>
       </CardHeader>
-      <CardContent className="h-125">
+      {/* ph-no-capture: rows can carry Slack message text (see ticket-peek) */}
+      <CardContent className="h-125 ph-no-capture">
         <TicketTable
           tickets={filteredTickets}
           slackChannel={slackChannel}

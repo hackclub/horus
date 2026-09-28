@@ -91,9 +91,11 @@ export function SettingsModal() {
           {TABS.map((t) => (
             <button
               key={t.id}
+              id={`preferences-tab-${t.id}`}
               type="button"
               role="tab"
               aria-selected={tab === t.id}
+              aria-controls="preferences-panel"
               onClick={() => setTab(t.id)}
               className={cn(
                 "p-3 border-b-3 border-b-transparent text-muted-foreground cursor-pointer",
@@ -105,7 +107,11 @@ export function SettingsModal() {
           ))}
         </div>
 
-        <div role="tabpanel">
+        <div
+          id="preferences-panel"
+          role="tabpanel"
+          aria-labelledby={`preferences-tab-${tab}`}
+        >
           {tab === "general" ? (
             <GeneralPanel />
           ) : !session?.user ? (

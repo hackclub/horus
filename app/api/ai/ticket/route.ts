@@ -7,7 +7,12 @@ import {
 } from "@/lib/api-response";
 import { auth } from "@/lib/auth";
 import { toErrorResponse, UpstreamError } from "@/lib/errors";
-import { AiError, chatStream, type StreamEvent } from "@/lib/hackclub-ai";
+import {
+  AiError,
+  budgetFor,
+  chatStream,
+  type StreamEvent,
+} from "@/lib/hackclub-ai";
 import { getTicket, isInvalidApiKeyError } from "@/lib/nephthys";
 import { getAiConfig, getNephthysKey } from "@/lib/user-keys";
 import { getInstanceBySlug } from "@/lib/viewer";
@@ -68,26 +73,30 @@ export async function POST(request: Request) {
   const instance = await getInstanceBySlug(slug);
   if (!instance) return jsonError("NotFound", "Unknown instance.", 404);
 
-  const nephthysKey = await getNephthysKey(
-    session.user.id,
-    instance.instanceId,
-  );
-  if (!nephthysKey) {
+  const saved = await getNephthysKey(session.user.id, instance);
+  if (saved.status === "host-changed") {
+    return jsonError(
+      "InvalidApiKey",
+      `${instance.name} moved to a different Nephthys host since you saved your key, so Horus won't send it there. Paste a key from the new host in Preferences → Nephthys Keys.`,
+      400,
+    );
+  }
+  if (saved.status !== "ok") {
     return jsonError(
       "KeyNotSet",
-      `AI needs the ticket's message. Add your Nephthys API key for ${instance.name} in Preferences → Keys.`,
+      `AI needs the ticket's message. Add your Nephthys API key for ${instance.name} in Preferences → Nephthys Keys.`,
       400,
     );
   }
 
   let ticket: Ticket;
   try {
-    ticket = await getTicket(instance.host, ticketId as number, nephthysKey);
+    ticket = await getTicket(instance.host, ticketId as number, saved.apiKey);
   } catch (error) {
     if (isInvalidApiKeyError(error)) {
       return jsonError(
         "InvalidApiKey",
-        `${instance.name}'s Nephthys didn't accept your API key anymore. Paste a new one in Preferences → Keys.`,
+        `${instance.name}'s Nephthys didn't accept your API key anymore. Paste a new one in Preferences → Nephthys Keys.`,
         400,
       );
     }
@@ -113,7 +122,7 @@ export async function POST(request: Request) {
       apiKey: ai.apiKey,
       model: ai.model,
       messages: messages(ticket, notes as string | undefined),
-      maxTokens,
+      ...(await budgetFor(ai.model, maxTokens)),
       signal: request.signal,
     });
   } catch (error) {
@@ -132,8 +141,14 @@ export async function POST(request: Request) {
           return;
         }
         controller.enqueue(line(value));
-        if (value.type === "done") controller.close();
+        if (value.type === "done") {
+          controller.close();
+          // Release the upstream connection now rather than on timeout.
+          await events.return(undefined);
+        }
       } catch (error) {
+        // The helper pressed Stop or closed the tab: nobody is listening.
+        if (request.signal.aborted) return;
         if (!(error instanceof AiError)) console.error("[ai ticket]", error);
         controller.enqueue(
           line({

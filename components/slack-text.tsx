@@ -43,6 +43,10 @@ function renderAngle(token: string, key: string): React.ReactNode {
       </span>
     );
   }
+  if (target.startsWith("!date")) {
+    // <!date^epoch^format|fallback>: show the fallback text.
+    return <span key={key}>{decodeEntities(label || "")}</span>;
+  }
   if (target.startsWith("!")) {
     return (
       <span key={key} className="font-medium">

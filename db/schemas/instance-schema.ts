@@ -78,6 +78,9 @@ export const nephthys_key = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     apiKey: text("api_key").notNull(),
     keyHint: text("key_hint").notNull(), // censored, safe to show
+    // The host the key was checked against. If an admin later points the
+    // instance at another host, the key is not sent there.
+    host: text("host").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

@@ -9,16 +9,23 @@ import {
   RotateCcw,
   Sparkles,
   Square,
+  TriangleAlert,
 } from "lucide-react";
 import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
+  useId,
   useMemo,
   useState,
 } from "react";
 import { authClient } from "@/lib/auth-client";
-import { openPreferences } from "@/lib/preferences-events";
+import {
+  KEYS_CHANGED_EVENT,
+  openPreferences,
+  type PreferencesTab,
+} from "@/lib/preferences-events";
 import { ticketDisplayTitle, ticketStatus } from "@/lib/tickets";
 import { useAiTicket } from "@/lib/use-ai-ticket";
 import { cn, OpenSlackLink, relativeTime, SlackMessageLink } from "@/lib/utils";
@@ -75,6 +82,19 @@ export function TicketPeekProvider({
     setIsOpen(true);
   }, []);
 
+  // The peek holds a snapshot of the ticket, so after a key changes it would
+  // show stale notices. Close it; reopening picks up the refreshed ticket.
+  useEffect(() => {
+    const close = () => setIsOpen(false);
+    window.addEventListener(KEYS_CHANGED_EVENT, close);
+    return () => window.removeEventListener(KEYS_CHANGED_EVENT, close);
+  }, []);
+
+  const goToPreferences = useCallback((tab: PreferencesTab) => {
+    setIsOpen(false);
+    openPreferences(tab);
+  }, []);
+
   const value = useMemo(
     () => ({ viewer, open, isOpen }),
     [viewer, open, isOpen],
@@ -84,8 +104,16 @@ export function TicketPeekProvider({
     <PeekContext value={value}>
       {children}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          {ticket && <PeekBody ticket={ticket} viewer={viewer} />}
+        {/* ph-no-capture keeps message and AI text out of PostHog
+            autocapture and session replay. */}
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto ph-no-capture">
+          {ticket && (
+            <PeekBody
+              ticket={ticket}
+              viewer={viewer}
+              goToPreferences={goToPreferences}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </PeekContext>
@@ -98,7 +126,15 @@ function age(iso: string) {
   ).replace(/\.$/, "");
 }
 
-function PeekBody({ ticket, viewer }: { ticket: Ticket; viewer: PeekViewer }) {
+function PeekBody({
+  ticket,
+  viewer,
+  goToPreferences,
+}: {
+  ticket: Ticket;
+  viewer: PeekViewer;
+  goToPreferences: (tab: PreferencesTab) => void;
+}) {
   const { data: session } = authClient.useSession();
   const deepLinking = session?.preferences?.isSlackDeeplinkingEnabled;
   const status = ticketStatus(ticket.status);
@@ -139,10 +175,20 @@ function PeekBody({ ticket, viewer }: { ticket: Ticket; viewer: PeekViewer }) {
         </DialogDescription>
       </DialogHeader>
 
-      <MessageSection ticket={ticket} viewer={viewer} signedIn={!!session} />
+      <MessageSection
+        ticket={ticket}
+        viewer={viewer}
+        signedIn={!!session}
+        goToPreferences={goToPreferences}
+      />
 
       {session && (
-        <AiSection ticket={ticket} viewer={viewer} threadLink={threadLink} />
+        <AiSection
+          ticket={ticket}
+          viewer={viewer}
+          threadLink={threadLink}
+          goToPreferences={goToPreferences}
+        />
       )}
 
       <div className="flex flex-row flex-wrap justify-end gap-2 border-t pt-4">
@@ -199,10 +245,12 @@ function MessageSection({
   ticket,
   viewer,
   signedIn,
+  goToPreferences,
 }: {
   ticket: Ticket;
   viewer: PeekViewer;
   signedIn: boolean;
+  goToPreferences: (tab: PreferencesTab) => void;
 }) {
   if (ticket.description?.trim()) {
     return (
@@ -216,7 +264,7 @@ function MessageSection({
   }
 
   const fixKey = (label: string) => (
-    <Button size="sm" variant="outline" onClick={() => openPreferences("keys")}>
+    <Button size="sm" variant="outline" onClick={() => goToPreferences("keys")}>
       <KeyRound />
       {label}
     </Button>
@@ -232,8 +280,17 @@ function MessageSection({
   if (viewer.access === "key-rejected") {
     return (
       <Notice action={fixKey("Replace key")}>
-        {viewer.instanceName}&apos;s Nephthys stopped accepting your saved API
-        key, so messages are hidden.
+        Your saved Nephthys key for {viewer.instanceName} doesn&apos;t work
+        anymore (it was deleted, or the instance moved hosts), so messages are
+        hidden.
+      </Notice>
+    );
+  }
+  if (viewer.access === "unavailable") {
+    return (
+      <Notice>
+        Nephthys didn&apos;t answer the request with your key just now, so
+        messages are hidden. Refresh to try again.
       </Notice>
     );
   }
@@ -253,16 +310,24 @@ function MessageSection({
   );
 }
 
+const TASKS: { id: AiTicketTask; label: string }[] = [
+  { id: "summary", label: "Summary" },
+  { id: "reply", label: "Reply draft" },
+];
+
 function AiSection({
   ticket,
   viewer,
   threadLink,
+  goToPreferences,
 }: {
   ticket: Ticket;
   viewer: PeekViewer;
   threadLink: string;
+  goToPreferences: (tab: PreferencesTab) => void;
 }) {
   const [task, setTask] = useState<AiTicketTask>("summary");
+  const panelId = useId();
 
   if (!viewer.aiEnabled) {
     return (
@@ -271,7 +336,7 @@ function AiSection({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => openPreferences("ai")}
+            onClick={() => goToPreferences("ai")}
           >
             <Sparkles />
             Set up AI
@@ -288,62 +353,110 @@ function AiSection({
 
   return (
     <section aria-label="AI" className="flex flex-col gap-2">
-      <div className="flex flex-row items-center gap-1" role="tablist">
-        <Sparkles size={14} className="text-primary mr-1" />
-        {(["summary", "reply"] as const).map((t) => (
+      <div
+        className="flex flex-row items-center gap-1"
+        role="tablist"
+        aria-label="AI helpers"
+      >
+        <Sparkles size={14} className="text-primary mr-1" aria-hidden />
+        {TASKS.map((t) => (
           <Button
-            key={t}
+            key={t.id}
+            id={`${panelId}-${t.id}`}
             size="sm"
-            variant={task === t ? "secondary" : "ghost"}
+            variant={task === t.id ? "secondary" : "ghost"}
             role="tab"
-            aria-selected={task === t}
-            onClick={() => setTask(t)}
+            aria-selected={task === t.id}
+            aria-controls={panelId}
+            onClick={() => setTask(t.id)}
           >
-            {t === "summary" ? "Summary" : "Reply draft"}
+            {t.label}
           </Button>
         ))}
       </div>
-      <AiOutput
-        key={`${ticket.id}:${task}`}
-        slug={viewer.slug}
-        ticketId={ticket.id}
-        task={task}
-        threadLink={threadLink}
-      />
+      <div id={panelId} role="tabpanel" aria-labelledby={`${panelId}-${task}`}>
+        <AiOutput
+          key={`${ticket.id}:${task}`}
+          slug={viewer.slug}
+          ticket={ticket}
+          task={task}
+          threadLink={threadLink}
+        />
+      </div>
     </section>
+  );
+}
+
+const URL_PATTERN = /https?:\/\/[^\s<>()|]+/g;
+
+/** Links in an AI draft that the person never wrote: worth a second look. */
+function unfamiliarLinks(draft: string, source: string): string[] {
+  const known = source.toLowerCase();
+  const links = (draft.match(URL_PATTERN) ?? []).map((url) =>
+    url.replace(/[.,;:!?'"*_`]+$/, ""),
+  );
+  return [...new Set(links)].filter(
+    (url) => !known.includes(url.toLowerCase()),
   );
 }
 
 function AiOutput({
   slug,
-  ticketId,
+  ticket,
   task,
   threadLink,
 }: {
   slug: string;
-  ticketId: number;
+  ticket: Ticket;
   task: AiTicketTask;
   threadLink: string;
 }) {
-  const ai = useAiTicket(slug, ticketId, task);
+  const ai = useAiTicket(slug, ticket.id, task);
   const [notes, setNotes] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
   const { data: session } = authClient.useSession();
   const busy = ai.status === "loading" || ai.status === "streaming";
+  const extraLinks =
+    task === "reply" && ai.status === "done"
+      ? unfamiliarLinks(ai.text, ticket.description ?? "")
+      : [];
 
-  async function copy() {
-    await navigator.clipboard.writeText(ai.text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  // Starts the clipboard write inside the click, before anything can take
+  // focus away (like the Slack tab), then reports how it went.
+  function copy(): Promise<void> {
+    return navigator.clipboard.writeText(ai.text).then(
+      () => {
+        setCopyState("copied");
+        setTimeout(() => setCopyState("idle"), 1500);
+      },
+      () => setCopyState("failed"),
+    );
   }
 
-  async function copyAndOpen() {
-    await copy();
+  function copyAndOpen() {
+    const copied = copy();
+    // Open in the same tick as the click so popup blockers allow it.
     OpenSlackLink(threadLink, session?.preferences?.isSlackDeeplinkingEnabled);
+    return copied;
   }
+
+  const status =
+    ai.status === "loading"
+      ? "Writing..."
+      : ai.status === "done"
+        ? `${task === "summary" ? "Summary" : "Reply draft"} ready.`
+        : ai.status === "error"
+          ? (ai.error ?? "Something broke.")
+          : "";
 
   return (
     <div className="flex flex-col gap-2">
+      <span className="sr-only" aria-live="polite">
+        {status}
+      </span>
+
       {task === "reply" && !busy && (
         <Textarea
           placeholder="Optional: what should the reply say or ask? (e.g. point them to #hackatime-help)"
@@ -367,7 +480,6 @@ function AiOutput({
             "border p-3 text-sm leading-relaxed min-h-16",
             ai.status === "error" && "border-destructive/50",
           )}
-          aria-live="polite"
           aria-busy={busy}
         >
           {ai.status === "loading" ? (
@@ -379,7 +491,10 @@ function AiOutput({
             <p className="whitespace-pre-wrap break-words">
               {ai.text}
               {ai.status === "streaming" && (
-                <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-primary animate-pulse align-middle" />
+                <span
+                  className="inline-block w-1.5 h-3.5 ml-0.5 bg-muted-foreground align-middle"
+                  aria-hidden
+                />
               )}
             </p>
           )}
@@ -388,6 +503,16 @@ function AiOutput({
           )}
           {ai.error && <p className="text-destructive mt-1">{ai.error}</p>}
         </div>
+      )}
+
+      {extraLinks.length > 0 && (
+        <p className="flex flex-row items-start gap-1.5 text-muted-foreground">
+          <TriangleAlert size={14} className="shrink-0 mt-0.5" aria-hidden />
+          <span>
+            This draft links to {extraLinks.join(", ")}, which isn&apos;t in
+            their message. Make sure it&apos;s real before sending.
+          </span>
+        </p>
       )}
 
       {ai.status !== "idle" && (
@@ -401,14 +526,14 @@ function AiOutput({
             <>
               {ai.text && task === "reply" && (
                 <Button size="sm" onClick={copyAndOpen}>
-                  {copied ? <Check /> : <Copy />}
+                  {copyState === "copied" ? <Check /> : <Copy />}
                   Copy and open thread
                 </Button>
               )}
               {ai.text && (
                 <Button size="sm" variant="outline" onClick={copy}>
-                  {copied ? <Check /> : <Copy />}
-                  {copied ? "Copied" : "Copy"}
+                  {copyState === "copied" ? <Check /> : <Copy />}
+                  {copyState === "copied" ? "Copied" : "Copy"}
                 </Button>
               )}
               <Button
@@ -422,7 +547,9 @@ function AiOutput({
             </>
           )}
           <span className="text-muted-foreground ml-auto">
-            AI can be wrong. Check before you send.
+            {copyState === "failed"
+              ? "Couldn't copy. Select the text and copy it yourself."
+              : "AI can be wrong. Check before you send."}
           </span>
         </div>
       )}

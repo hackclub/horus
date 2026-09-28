@@ -1,7 +1,8 @@
+import "server-only";
 import { db } from "@/db";
 import type { ErrorResponse } from "@/types/error";
 import type { Ticket } from "@/types/nephthys";
-import { toErrorResponse } from "./errors";
+import { describeError, toErrorResponse } from "./errors";
 import {
   getTickets,
   isInvalidApiKeyError,
@@ -41,9 +42,12 @@ export async function getInstanceBySlug(
  * - `full`: fetched with the viewer's own key; tickets carry `description`
  *   unless the Nephthys instance predates API keys.
  * - `key-rejected`: the viewer has a key saved but Nephthys refused it
- *   (deleted in the lobby?), so we fell back to the public view.
+ *   (deleted in the lobby?) or the instance moved to another host since, so
+ *   we fell back to the public view.
+ * - `unavailable`: the request with the key failed for another reason (a
+ *   Nephthys hiccup), so we fell back to the public view for now.
  */
-export type TicketAccess = "public" | "full" | "key-rejected";
+export type TicketAccess = "public" | "full" | "key-rejected" | "unavailable";
 
 /**
  * Tickets as this viewer is allowed to see them. Message content only comes
@@ -56,18 +60,30 @@ export async function loadViewerTickets(
   filter?: NephthysTicketFilter,
 ): Promise<ErrorResponse | { tickets: Ticket[]; access: TicketAccess }> {
   const context = `nephthys tickets (${instance.host})`;
-  const apiKey = userId
-    ? await getNephthysKey(userId, instance.instanceId)
-    : null;
+  const saved = userId
+    ? await getNephthysKey(userId, instance)
+    : ({ status: "none" } as const);
 
-  let access: TicketAccess = "public";
-  if (apiKey) {
+  let access: TicketAccess =
+    saved.status === "host-changed" ? "key-rejected" : "public";
+  if (saved.status === "ok") {
     try {
-      const tickets = await getTickets(instance.host, filter, false, apiKey);
+      const tickets = await getTickets(
+        instance.host,
+        filter,
+        false,
+        saved.apiKey,
+      );
       return { tickets, access: "full" };
     } catch (error) {
-      if (!isInvalidApiKeyError(error)) return toErrorResponse(context, error);
-      access = "key-rejected";
+      if (isInvalidApiKeyError(error)) {
+        access = "key-rejected";
+      } else {
+        // Keyed requests are uncached, so a blip would otherwise take the
+        // whole page down for exactly the people who set up a key.
+        console.error(`[${context} with key] ${describeError(error)}`);
+        access = "unavailable";
+      }
     }
   }
 

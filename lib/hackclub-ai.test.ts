@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { AiError, chat, chatStream, type StreamEvent } from "./hackclub-ai";
+import {
+  AiError,
+  budgetFor,
+  chat,
+  chatStream,
+  type StreamEvent,
+} from "./hackclub-ai";
 
 const realFetch = globalThis.fetch;
 let lastBody: Record<string, unknown> | null = null;
@@ -146,4 +152,60 @@ describe("chat", () => {
     );
     expect(await chat(request)).toEqual({ content: "ok", truncated: false });
   });
+});
+
+describe("budgetFor", () => {
+  function models(reasoning: Record<string, unknown> | undefined) {
+    mockFetch(() =>
+      Response.json({
+        data: [{ id: "x/model", name: "Model", pricing: {}, reasoning }],
+      }),
+    );
+  }
+
+  test("leaves non-reasoning models alone", async () => {
+    models({ mandatory: false });
+    expect(await budgetFor("x/model", 1000)).toEqual({ maxTokens: 1000 });
+  });
+
+  test("turns off optional default-on reasoning", async () => {
+    models({
+      mandatory: false,
+      default_enabled: true,
+      supported_efforts: ["high", "low", "none"],
+    });
+    expect(await budgetFor("x/model", 1000)).toEqual({
+      maxTokens: 1000,
+      reasoning: { effort: "none", exclude: true },
+    });
+  });
+
+  test("uses the lowest effort and adds headroom when reasoning is mandatory", async () => {
+    models({ mandatory: true, supported_efforts: ["high", "medium", "low"] });
+    const budget = await budgetFor("x/model", 1000);
+    expect(budget.reasoning).toEqual({ effort: "low", exclude: true });
+    expect(budget.maxTokens).toBeGreaterThan(1000);
+  });
+
+  test("adds headroom when the model list is unreachable", async () => {
+    globalThis.fetch = (async () => {
+      throw new TypeError("fetch failed");
+    }) as unknown as typeof fetch;
+    expect((await budgetFor("x/model", 1000)).maxTokens).toBeGreaterThan(1000);
+  });
+});
+
+test("flags the proxy's prompt filter as blocked", async () => {
+  mockFetch(() =>
+    Response.json(
+      {
+        error:
+          "For now, AI coding agents and frontends like SillyTavern aren't allowed to be used with ai.hackclub.com. Join #hackclub-ai on the Hack Club Slack for future updates.",
+      },
+      { status: 403 },
+    ),
+  );
+  const error = await chat(request).catch((e) => e);
+  expect(error.blocked).toBe(true);
+  expect(error.code).toBe("Forbidden");
 });

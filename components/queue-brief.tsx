@@ -70,7 +70,7 @@ export function QueueBriefWidget({
   const pick = brief?.pickNext ? byId.get(brief.pickNext.ticketId) : null;
 
   return (
-    <Card>
+    <Card className="ph-no-capture">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <h1 className="text-lg flex flex-row items-center gap-2">
@@ -108,7 +108,7 @@ export function QueueBriefWidget({
               )}
 
               {brief.pickNext && (
-                <div className="bg-primary/10 p-3 flex flex-row flex-wrap items-center justify-between gap-3">
+                <div className="bg-input/30 border p-3 flex flex-row flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0 flex flex-col gap-0.5">
                     <p className="text-xs font-medium tracking-widest text-primary">
                       PICK NEXT · #{brief.pickNext.ticketId}

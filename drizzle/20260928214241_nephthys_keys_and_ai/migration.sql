@@ -13,6 +13,7 @@ CREATE TABLE "nephthys_key" (
 	"user_id" text NOT NULL,
 	"api_key" text NOT NULL,
 	"key_hint" text NOT NULL,
+	"host" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "nephthys_key_instance_id_user_id_unique" UNIQUE("instance_id","user_id")

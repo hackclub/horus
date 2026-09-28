@@ -34,6 +34,12 @@ describe("slackToPlainText", () => {
     ).toBe("see the docs and https://x.dev, ping @U0123ABC in #help");
   });
 
+  test("drops formatting markers but keeps snake_case", () => {
+    expect(
+      slackToPlainText('*"Sign in"* then _wait_, ~no~ `v1.0` in my_var_name'),
+    ).toBe('"Sign in" then wait, no v1.0 in my_var_name');
+  });
+
   test("decodes entities after unwrapping", () => {
     expect(slackToPlainText("a &lt;b&gt; &amp; <!here>")).toBe("a <b> & @here");
   });

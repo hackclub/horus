@@ -122,7 +122,9 @@ export function TicketWidget({
             <p className="text-muted-foreground">
               slow response · #{ticket?.id}
             </p>
-            <p className="text-lg">{ticketDisplayTitle(ticket)}</p>
+            <p className="text-lg ph-no-capture">
+              {ticketDisplayTitle(ticket)}
+            </p>
           </CardContent>
           <CardAction className="w-full px-4 mt-auto">
             <Button onClick={openTicket} className="w-full text-md" size="lg">

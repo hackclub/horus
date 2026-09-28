@@ -23,6 +23,10 @@ import type { ErrorResponse } from "@/types/error";
 // Club AI key. Only censored hints ever leave the server.
 
 const MAX_KEY_LENGTH = 512;
+// A bare hostname with an optional port. Anything else (paths, queries,
+// credentials) could smuggle the key somewhere unexpected.
+const PLAIN_HOST =
+  /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:\d{1,5})?$/i;
 const MODEL_ID = /^[~a-z0-9][\w.:/~-]{1,120}$/i;
 
 async function requireUser() {
@@ -47,6 +51,8 @@ export type NephthysKeyEntry = {
   deprecated: boolean;
   isMember: boolean;
   keyHint: string | null;
+  /** The instance moved to another host since the key was saved. */
+  hostChanged: boolean;
   updatedAt: string | null;
 };
 
@@ -63,7 +69,12 @@ export async function getMyNephthysKeys(): Promise<
     }),
     db.query.nephthys_key.findMany({
       where: { userId: user.id },
-      columns: { instanceId: true, keyHint: true, updatedAt: true },
+      columns: {
+        instanceId: true,
+        keyHint: true,
+        host: true,
+        updatedAt: true,
+      },
     }),
     db.query.member.findMany({
       where: { userId: user.id },
@@ -87,6 +98,7 @@ export async function getMyNephthysKeys(): Promise<
           deprecated: !!instance.deprecated,
           isMember: memberOrgs.has(instance.organization.id),
           keyHint: key?.keyHint ?? null,
+          hostChanged: !!key && key.host !== instance.nephthys_host.host,
           updatedAt: key?.updatedAt.toISOString() ?? null,
         },
       ];
@@ -128,6 +140,12 @@ export async function setNephthysApiKey(
     columns: { host: true },
   });
   if (!host) return { error: "NotFound", message: "Unknown instance." };
+  if (!PLAIN_HOST.test(host.host)) {
+    return {
+      error: "InvalidInput",
+      message: `This instance's Nephthys host (${host.host}) isn't a plain hostname, so Horus won't send a key to it. Ask an instance admin to fix it in Settings.`,
+    };
+  }
 
   let check: Awaited<ReturnType<typeof checkNephthysKey>>;
   try {
@@ -154,10 +172,11 @@ export async function setNephthysApiKey(
       userId: user.id,
       apiKey: encrypted,
       keyHint,
+      host: host.host,
     })
     .onConflictDoUpdate({
       target: [nephthys_key.instanceId, nephthys_key.userId],
-      set: { apiKey: encrypted, keyHint },
+      set: { apiKey: encrypted, keyHint, host: host.host },
     });
 
   return { keyHint, descriptions: check.descriptions };

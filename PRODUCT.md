@@ -49,7 +49,7 @@ The consequence is directional: anything a single Nephthys instance already show
 - Super-admin panel: instance/organization CRUD, global user list, role assignment, bans, and impersonation.
 - Per-user preferences: default instance, analytics opt-out, Slack deeplinking.
 - Marmalade API keys stored encrypted (AES-256-GCM) per user per instance.
-- Nephthys API keys stored the same way, per user per instance. With one, that user (and only that user) sees full ticket messages; they're fetched uncached so they never land in a shared cache.
+- Nephthys API keys stored the same way, per user per instance, and pinned to the host they were validated on (if an admin repoints the instance, the key isn't sent to the new host). With one, that user (and only that user) sees full ticket messages; they're fetched uncached so they never land in a shared cache, and every surface showing message or AI text is marked `ph-no-capture` so PostHog autocapture and replay skip it.
 - Ticket peek (dialog) from the queue tables and the Review page, plus queue search.
 - AI with the user's own Hack Club AI key: per-ticket summary and reply draft (streamed; needs the instance's Nephthys key since it reads the message) and a queue brief of the unassigned queue (works on titles alone, reads messages when a key is present). Requests ask OpenRouter for `data_collection: deny` providers; nothing is sent until the user presses a button, and outputs aren't stored.
 - PostHog analytics with a genuine opt-out, plus in-product feedback surveys.
