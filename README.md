@@ -11,6 +11,7 @@ Horus centralizes your [Hack Club](https://hackclub.com) support channels and gi
 - See a live leaderboard of the staff teams and their ticket counts
 - Get statistics on how long a ticket usually is open
 - See a breakdown on tickets by their status
+- Flip through tickets using the review mode
 
 ## Hidden or upcoming features
 - [x] User and instance management for super admins
@@ -26,7 +27,7 @@ Horus centralizes your [Hack Club](https://hackclub.com) support channels and gi
 - [ ] nephthys but better?
 
 ## Contributing
-- Clone the repo: `git clone https://github.com/lazylllama/horus-dashboard.git`
+- Clone the repo: `git clone https://github.com/hackclub/horus.git`
 - Copy the environment variables file and fill them in: `cp .example.env .env`
 - Install dependencies: `bun i`
 - Run the development server: `bun dev`
