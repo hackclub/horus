@@ -12,10 +12,12 @@ import { Footer } from "@/components/footer";
 import { HelperLeaderboardWidget } from "@/components/helper-leaderboard";
 import Navbar from "@/components/navbar";
 import { PageWrapper } from "@/components/page-template";
+import { QueueBriefWidget } from "@/components/queue-brief";
 import { StatusChartWidget } from "@/components/status-chart-widget";
 import { SurveyWidget } from "@/components/survey-widget";
 import { PageDescription, PageDescriptionAuth } from "@/components/text-types";
 import { TicketAgeChartWidget } from "@/components/ticket-age-chart-widget";
+import { TicketPeekProvider } from "@/components/ticket-peek";
 import {
   AssignedTicketsWidget,
   TicketsWidget,
@@ -23,6 +25,8 @@ import {
 import { TicketWidget } from "@/components/ticket-widget";
 import { auth } from "@/lib/auth";
 import { isErrorResponse, unwrap } from "@/lib/errors";
+import { hasAiKey } from "@/lib/user-keys";
+import { getInstanceBySlug, loadViewerTickets } from "@/lib/viewer";
 import type { Ticket as TicketType } from "@/types/nephthys";
 
 export default async function Dashboard({
@@ -124,24 +128,31 @@ async function TicketsSection({
   params: Promise<{ host: string }>;
 }) {
   const { host: selectedHost } = await params;
-  const nephthysHost = await GetNephthysHostnameFromSlug(selectedHost);
-  if ("error" in nephthysHost || !nephthysHost)
+  const instance = await getInstanceBySlug(selectedHost);
+  if (!instance)
     throw new Error(
-      nephthysHost.message ||
-        "Nephthys hostname not found for the selected host",
+      `Couldn't find organization, nephthys hostname or instance (${selectedHost}) by slug`,
     );
 
-  const { host: hostname, slackChannel } = nephthysHost;
+  const { host: hostname, slackChannel } = instance;
 
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
-  const ticketsResult = await fetchNephthysTickets(hostname, {
-    status: "OPEN,IN_PROGRESS",
-  });
+  // For members, with the instance's Nephthys key this includes message
+  // text, fetched uncached and only ever rendered for them.
+  const [ticketsResult, aiEnabled] = await Promise.all([
+    loadViewerTickets(instance, session?.user?.id, {
+      status: "OPEN,IN_PROGRESS",
+    }),
+    session ? hasAiKey(session.user.id) : false,
+  ]);
 
-  const tickets = unwrap(ticketsResult, `tickets for ${hostname}`);
+  const { tickets, access, canManageKey } = unwrap(
+    ticketsResult,
+    `tickets for ${hostname}`,
+  );
 
   const userStats = { assigned: 0, unclaimed: 0, inProgress: 0 };
   const slackId = session?.user?.slack_id;
@@ -175,7 +186,16 @@ async function TicketsSection({
   );
 
   return (
-    <>
+    <TicketPeekProvider
+      viewer={{
+        slug: instance.slug,
+        instanceName: instance.name,
+        slackChannel,
+        access,
+        canManageKey,
+        aiEnabled,
+      }}
+    >
       <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 py-2 min-h-66">
         <TicketWidget
           slackChannel={slackChannel}
@@ -192,6 +212,13 @@ async function TicketsSection({
 
       <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-4 py-2">
         <div className="col-span-3 flex flex-col gap-4">
+          {session?.user && aiEnabled && (
+            <QueueBriefWidget
+              slug={instance.slug}
+              slackChannel={slackChannel}
+              tickets={tickets}
+            />
+          )}
           {lowTraffic && queue}
           {session?.user && (
             <AssignedTicketsWidget
@@ -203,7 +230,7 @@ async function TicketsSection({
           {!lowTraffic && queue}
         </div>
       </div>
-    </>
+    </TicketPeekProvider>
   );
 }
 

@@ -33,8 +33,11 @@ export default function Navbar() {
     });
   }
 
-  function handleSignOut() {
-    authClient.signOut();
+  async function handleSignOut() {
+    await authClient.signOut();
+    // Drop anything private still on screen or in memory (ticket messages,
+    // AI answers) along with the session.
+    window.location.reload();
   }
 
   return (

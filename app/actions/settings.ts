@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { db } from "@/db";
 import { member, organization } from "@/db/schemas/auth-schema";
-import { marmalade_data, nephthys_host } from "@/db/schemas/instance-schema";
+import {
+  marmalade_data,
+  nephthys_host,
+  nephthys_key,
+} from "@/db/schemas/instance-schema";
 import { auth } from "@/lib/auth";
 import {
   authorizeInstanceRole,
@@ -13,6 +17,11 @@ import {
   type OrgRole,
   type PermissionRequest,
 } from "@/lib/auth-permissions";
+import { encrypt } from "@/lib/encryption";
+import { isErrorResponse, toErrorResponse } from "@/lib/errors";
+import { checkNephthysKey } from "@/lib/nephthys";
+import { censorKey } from "@/lib/user-keys";
+import type { ErrorResponse } from "@/types/error";
 import { searchGlobalUsers } from "./shared";
 
 // customSession's inferred type drops the org plugin's session field, but the
@@ -65,7 +74,16 @@ export async function getSettingsData() {
   const org = await db.query.organization.findFirst({
     where: { id: organizationId },
     with: {
-      instance: { with: { nephthys_host: true, marmalade_data: true } },
+      instance: {
+        with: {
+          nephthys_host: true,
+          marmalade_data: true,
+          nephthys_key: {
+            columns: { keyHint: true, host: true, updatedAt: true },
+            with: { setByUser: { columns: { name: true } } },
+          },
+        },
+      },
       members: { with: { user: true } },
     },
   });
@@ -101,6 +119,17 @@ export async function getSettingsData() {
     nephthys: {
       host: org.instance.nephthys_host?.host ?? "",
       slackChannel: org.instance.nephthys_host?.slackChannel ?? "",
+      // Only a censored hint; the key itself never leaves the server.
+      key: org.instance.nephthys_key
+        ? {
+            hint: org.instance.nephthys_key.keyHint,
+            setBy: org.instance.nephthys_key.setByUser?.name ?? null,
+            updatedAt: org.instance.nephthys_key.updatedAt.toISOString(),
+            hostChanged:
+              org.instance.nephthys_key.host !==
+              org.instance.nephthys_host?.host,
+          }
+        : null,
     },
     marmalade: {
       mailboxId: org.instance.marmalade_data?.mailboxId ?? "",
@@ -166,6 +195,96 @@ export async function updateNephthys(input: {
     .insert(nephthys_host)
     .values({ instanceId, ...input })
     .onConflictDoUpdate({ target: nephthys_host.instanceId, set: input });
+  revalidate();
+}
+
+// ==================== nephthys api key (general:write) ====================
+
+// A bare hostname with an optional port. Anything else (paths, queries,
+// credentials) could smuggle the key somewhere unexpected.
+const PLAIN_HOST =
+  /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:\d{1,5})?$/i;
+
+/**
+ * One key per instance. It's checked against the instance's current host
+ * before it's stored, and pinned to that host: if the host changes later,
+ * the key isn't sent to the new one.
+ */
+export async function setNephthysKey(
+  apiKey: string,
+): Promise<ErrorResponse | { keyHint: string; descriptions: boolean | null }> {
+  const { session, organizationId } = await requireInstance({
+    instance: ["general:write"],
+  });
+
+  const key = typeof apiKey === "string" ? apiKey.trim() : "";
+  if (!key || key.length > 512 || /\s/.test(key)) {
+    return { error: "InvalidInput", message: "Paste a key first." };
+  }
+  if (!key.startsWith("sk_neph_")) {
+    return {
+      error: "InvalidInput",
+      message:
+        "That doesn't look like a Nephthys key. They start with sk_neph_.",
+    };
+  }
+
+  const instanceId = await instanceIdFor(organizationId);
+  const host = await db.query.nephthys_host.findFirst({
+    where: { instanceId },
+    columns: { host: true },
+  });
+  if (!host) {
+    return {
+      error: "NoNephthysHost",
+      message: "Save the Nephthys host first.",
+    };
+  }
+  if (!PLAIN_HOST.test(host.host)) {
+    return {
+      error: "InvalidInput",
+      message: `The Nephthys host (${host.host}) isn't a plain hostname, so Horus won't send a key to it. Fix the host above first.`,
+    };
+  }
+
+  let check: Awaited<ReturnType<typeof checkNephthysKey>>;
+  try {
+    check = await checkNephthysKey(host.host, key);
+  } catch (error) {
+    return toErrorResponse(`nephthys key check (${host.host})`, error);
+  }
+  if (!check.valid) {
+    return {
+      error: "InvalidApiKey",
+      message: `${host.host} didn't accept that key. Keys only work on the Nephthys they were made on.`,
+    };
+  }
+
+  const encrypted = encrypt(key);
+  if (isErrorResponse(encrypted)) return encrypted;
+
+  const keyHint = censorKey(key);
+  const values = {
+    apiKey: encrypted,
+    keyHint,
+    host: host.host,
+    setBy: session.user.id,
+  };
+  await db
+    .insert(nephthys_key)
+    .values({ instanceId, ...values })
+    .onConflictDoUpdate({ target: nephthys_key.instanceId, set: values });
+
+  revalidate();
+  return { keyHint, descriptions: check.descriptions };
+}
+
+export async function removeNephthysKey() {
+  const { organizationId } = await requireInstance({
+    instance: ["general:write"],
+  });
+  const instanceId = await instanceIdFor(organizationId);
+  await db.delete(nephthys_key).where(eq(nephthys_key.instanceId, instanceId));
   revalidate();
 }
 
@@ -297,7 +416,8 @@ export async function deleteInstance() {
   const { organizationId } = await requireInstance({
     instance: ["danger:write"],
   });
-  // Cascades to instance / member / nephthys_host / jelly_host via FKs.
+  // Cascades to instance / member / nephthys_host / nephthys_key / jelly_host
+  // via FKs.
   await db.delete(organization).where(eq(organization.id, organizationId));
   // Nothing left to be active in.
   await auth.api.setActiveOrganization({

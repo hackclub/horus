@@ -31,7 +31,8 @@ The consequence is directional: anything a single Nephthys instance already show
 ## Operating Context
 
 - **Slack (Hack Club enterprise grid)** is where support work actually happens. Horus links out to channels and threads, with deeplinking into the Slack desktop/mobile app as the default and web archive links as the fallback.
-- **Nephthys** is the per-instance ticket system. Each Horus instance maps to exactly one Nephthys host plus one Slack channel. Horus reads its `/api/tickets` and `/api/stats_v2` endpoints.
+- **Nephthys** is the per-instance ticket system. Each Horus instance maps to exactly one Nephthys host plus one Slack channel. Horus reads its `/api/tickets`, `/api/ticket` and `/api/stats_v2` endpoints. Ticket message text (`description`) is only returned for requests carrying a Nephthys API key (made in each instance's `/lobby`; a key only works on the host it was made on), and falls under the Hack Club Slack Scraping Use Policy: never public, never used for training.
+- **Hack Club AI** (`ai.hackclub.com`) is an OpenAI-compatible proxy over OpenRouter. Users bring their own key; Horus has no server-wide AI key.
 - **Cachet** supplies Slack identity — display names, pronouns, avatars — resolved by Slack ID.
 - **Jelly / Marmalade** is the email-support side. Marmalade brokers mailbox access via per-user, per-instance API keys that users paste into Horus themselves. This integration is partial and gated behind a PostHog feature flag.
 - **A scheduled job** (`scripts/run-cron.py` → `POST /api/cron`) snapshots per-instance ticket counts into Redis so the public directory can render counts without fanning out to every Nephthys host on each request.
@@ -48,6 +49,9 @@ The consequence is directional: anything a single Nephthys instance already show
 - Super-admin panel: instance/organization CRUD, global user list, role assignment, bans, and impersonation.
 - Per-user preferences: default instance, analytics opt-out, Slack deeplinking.
 - Marmalade API keys stored encrypted (AES-256-GCM) per user per instance.
+- One Nephthys API key per instance, set by an instance admin (`general:write`) in Settings, stored the same way and pinned to the host it was validated on (if the instance is repointed, the key isn't sent to the new host). With it, signed-in **members** of that instance see full ticket messages; signed-out visitors and non-members never do, since dashboards are public. Keyed fetches are uncached so they never land in a shared cache, and every surface showing message or AI text is marked `ph-no-capture` so PostHog autocapture and replay skip it.
+- Ticket peek (dialog) from the queue tables and the Review page, plus queue search.
+- AI with the user's own Hack Club AI key: a per-ticket summary (streamed; for members of an instance with a Nephthys key, since it reads the message) and a queue brief of the unassigned queue (works on titles alone, reads messages when a key is present). There is deliberately no AI reply drafting. Requests ask OpenRouter for `data_collection: deny` providers; nothing is sent until the user presses a button, and outputs aren't stored.
 - PostHog analytics with a genuine opt-out, plus in-product feedback surveys.
 
 **Roles.** Global: `user`, `admin` (super admin). Per-instance: `helper` (read), `admin` (read + general/member writes), `sponsor` (everything, including danger zone). An instance always needs a sponsor.

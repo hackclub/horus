@@ -24,9 +24,11 @@ export type Ticket = {
   assigned_to: NephthysUser | null;
   reopened_by: NephthysUser | null;
   team_tags: string[];
+  category_tag?: string | null;
   created_at: string;
   closed_at: string | null;
   message_ts: string;
+  description?: string;
 };
 
 export type TimeDurations =

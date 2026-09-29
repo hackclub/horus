@@ -11,6 +11,11 @@ import { UpstreamError } from "./errors";
 type FetchOptions = {
   revalidate?: number;
   timeoutMs?: number;
+  /**
+   * A viewer's Nephthys API key. Authenticated responses carry Slack message
+   * content, so they are never written to the shared fetch cache.
+   */
+  apiKey?: string | null;
 };
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -53,8 +58,18 @@ export async function fetchNephthys<T>(
   try {
     response = await fetch(url, {
       signal: AbortSignal.timeout(timeoutMs),
-      headers: { accept: "application/json" },
-      next: { revalidate: options.revalidate ?? 10 },
+      ...(options.apiKey
+        ? {
+            headers: {
+              accept: "application/json",
+              authorization: `Bearer ${options.apiKey}`,
+            },
+            cache: "no-store",
+          }
+        : {
+            headers: { accept: "application/json" },
+            next: { revalidate: options.revalidate ?? 10 },
+          }),
     });
   } catch (error) {
     // AbortSignal.timeout rejects with a TimeoutError; anything else out of
@@ -126,10 +141,16 @@ export async function getStats(
   return enrichedStats as CachetEnrichedStats;
 }
 
+/** Nephthys answers 401 when a request carries a key it doesn't know. */
+export function isInvalidApiKeyError(error: unknown): boolean {
+  return error instanceof UpstreamError && error.status === 401;
+}
+
 export async function getTickets(
   host: string,
   filter?: NephthysTicketFilter,
   skipCache = false,
+  apiKey?: string | null,
 ): Promise<Ticket[]> {
   if (!host) {
     throw new Error("Missing required parameter: host");
@@ -161,6 +182,7 @@ export async function getTickets(
         statusParams.set("status", status);
         return fetchNephthys<Ticket[]>(`/api/tickets?${statusParams}`, host, {
           revalidate: skipCache ? 0 : 5,
+          apiKey,
         });
       }),
     );
@@ -173,10 +195,58 @@ export async function getTickets(
     host,
     {
       revalidate: skipCache ? 0 : 5,
+      apiKey,
     },
   );
 
   return results;
+}
+
+export async function getTicket(
+  host: string,
+  id: number,
+  apiKey?: string | null,
+): Promise<Ticket> {
+  if (!host) {
+    throw new Error("Missing required parameter: host");
+  }
+
+  return fetchNephthys<Ticket>(`/api/ticket?id=${id}`, host, {
+    revalidate: 5,
+    apiKey,
+  });
+}
+
+export type NephthysKeyCheck =
+  | { valid: false }
+  // `descriptions` is null when the queue was empty and there was nothing to
+  // prove the key unlocks message content with.
+  | { valid: true; descriptions: boolean | null };
+
+/**
+ * Try a key against a host. A valid key on an up-to-date Nephthys returns
+ * tickets with `description`; an older Nephthys ignores the header entirely.
+ */
+export async function checkNephthysKey(
+  host: string,
+  apiKey: string,
+): Promise<NephthysKeyCheck> {
+  try {
+    // Recent open tickets only: enough to see whether messages come back
+    // without pulling the whole queue.
+    const tickets = await fetchNephthys<Ticket[]>(
+      `/api/tickets?status=open&since=${daysAgoIsoDate(7)}`,
+      host,
+      { apiKey },
+    );
+    if (!Array.isArray(tickets) || tickets.length === 0) {
+      return { valid: true, descriptions: null };
+    }
+    return { valid: true, descriptions: "description" in tickets[0] };
+  } catch (error) {
+    if (isInvalidApiKeyError(error)) return { valid: false };
+    throw error;
+  }
 }
 
 // TODO: this really needs its own function in nephthys api
