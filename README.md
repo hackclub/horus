@@ -14,6 +14,7 @@ Horus centralizes your [Hack Club](https://hackclub.com) support channels and gi
 - Search the queue and peek at any ticket without leaving Horus
 - Read full ticket messages: an instance admin adds the instance's Nephthys API key in Settings, and members see messages (stored encrypted, never shown signed out)
 - AI with your own [Hack Club AI](https://ai.hackclub.com) key: ticket summaries and a queue brief that groups tickets and says what to pick next
+- Flip through tickets using the review mode
 
 ## Hidden or upcoming features
 - [x] User and instance management for super admins
@@ -29,7 +30,7 @@ Horus centralizes your [Hack Club](https://hackclub.com) support channels and gi
 - [ ] nephthys but better?
 
 ## Contributing
-- Clone the repo: `git clone https://github.com/lazylllama/horus-dashboard.git`
+- Clone the repo: `git clone https://github.com/hackclub/horus.git`
 - Copy the environment variables file and fill them in: `cp .example.env .env`
 - Install dependencies: `bun i`
 - Run the development server: `bun dev`
