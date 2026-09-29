@@ -1,28 +1,28 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
-import type { AiStreamLine, AiTicketTask } from "@/types/ai";
+import type { AiStreamLine } from "@/types/ai";
 
-export type AiTicketState = {
+export type AiSummaryState = {
   status: "idle" | "loading" | "streaming" | "done" | "error";
   text: string;
   truncated: boolean;
   error: string | null;
 };
 
-const IDLE: AiTicketState = {
+const IDLE: AiSummaryState = {
   status: "idle",
   text: "",
   truncated: false,
   error: null,
 };
 
-// One entry per ticket and task, for this tab only. Requests live here rather
-// than in a component, so switching Summary/Reply or closing the peek doesn't
-// throw away an answer that's already being paid for, and reopening a ticket
-// shows it again. Never persisted: it's derived from Slack message content.
+// One entry per ticket, for this tab only. Requests live here rather than in a
+// component, so closing the peek doesn't throw away an answer that's already
+// being paid for, and reopening the ticket shows it again. Never persisted:
+// it's derived from Slack message content.
 type Entry = {
-  state: AiTicketState;
+  state: AiSummaryState;
   controller: AbortController | null;
   listeners: Set<() => void>;
 };
@@ -38,16 +38,13 @@ function entryFor(key: string): Entry {
   return entry;
 }
 
-function update(key: string, state: AiTicketState) {
+function update(key: string, state: AiSummaryState) {
   const entry = entryFor(key);
   entry.state = state;
   for (const listener of entry.listeners) listener();
 }
 
-async function stream(
-  key: string,
-  body: { slug: string; ticketId: number; task: AiTicketTask; notes?: string },
-) {
+async function stream(key: string, body: { slug: string; ticketId: number }) {
   const entry = entryFor(key);
   entry.controller?.abort();
   const controller = new AbortController();
@@ -58,7 +55,7 @@ async function stream(
   let truncated = false;
   let finished = false;
   try {
-    const response = await fetch("/api/ai/ticket", {
+    const response = await fetch("/api/ai/summary", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
@@ -142,13 +139,9 @@ async function stream(
   }
 }
 
-/** Streams POST /api/ai/ticket for one ticket and task. */
-export function useAiTicket(
-  slug: string,
-  ticketId: number,
-  task: AiTicketTask,
-) {
-  const key = `${slug}:${ticketId}:${task}`;
+/** Streams POST /api/ai/summary for one ticket. */
+export function useAiSummary(slug: string, ticketId: number) {
+  const key = `${slug}:${ticketId}`;
 
   const subscribe = useCallback(
     (listener: () => void) => {
@@ -167,8 +160,8 @@ export function useAiTicket(
   );
 
   const run = useCallback(
-    (notes?: string) => stream(key, { slug, ticketId, task, notes }),
-    [key, slug, ticketId, task],
+    () => stream(key, { slug, ticketId }),
+    [key, slug, ticketId],
   );
   const stop = useCallback(() => entryFor(key).controller?.abort(), [key]);
 

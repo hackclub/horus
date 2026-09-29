@@ -10,7 +10,6 @@ import { slackToPlainText, ticketAgeMs, UNTITLED_TICKET } from "./tickets";
 const DESCRIPTION_LIMIT = 6_000;
 const BRIEF_DESCRIPTION_LIMIT = 280;
 export const BRIEF_TICKET_LIMIT = 80;
-const NOTES_LIMIT = 500;
 
 const CONTEXT = `You are an assistant inside Horus, a dashboard used by Hack Club support helpers. Hack Club is a nonprofit community of teenagers who code; support happens in Slack channels where each question becomes a ticket.
 
@@ -66,29 +65,6 @@ Write a quick brief of the ticket so a helper can understand it at a glance:
 - Last line: "Next step:" followed by what the helper should do or ask first.
 
 If the message isn't in English, name the language on the first line and still write the brief in English. Keep it under 110 words. Plain text only: no headings, no bold, no tables.`,
-    },
-    { role: "user", content: ticketBlock(ticket) },
-  ];
-}
-
-export function replyMessages(ticket: Ticket, notes?: string): ChatMessage[] {
-  const helperNotes = notes?.trim()
-    ? `\n\nThe helper added these notes for the reply (these come from the helper, so follow them):\n${truncate(notes.trim(), NOTES_LIMIT)}`
-    : "";
-
-  return [
-    {
-      role: "system",
-      content: `${CONTEXT}
-
-Draft the first reply a helper could post in the ticket's Slack thread. The helper will review and edit it before sending.
-
-- Sound like a friendly, casual peer, not a company. Short sentences, no "Dear", no sign-off.
-- Answer directly if the message contains enough to answer. If it doesn't, ask the one or two questions that would unblock it instead of guessing.
-- Never invent links, commands, deadlines, amounts, or policies. Don't promise anything on Hack Club's behalf.
-- Reply in the language the person wrote in.
-- Slack formatting only if it helps (*bold*, \`code\`). Under 120 words.
-- Output only the reply text.${helperNotes}`,
     },
     { role: "user", content: ticketBlock(ticket) },
   ];

@@ -133,10 +133,10 @@ export function AiPanel() {
           >
             Hack Club AI
           </a>{" "}
-          key to get ticket summaries and reply drafts in the ticket peek, plus
-          a queue brief on each dashboard. Summaries and drafts read the
-          ticket&apos;s message, so they work on instances you&apos;re a member
-          of once an instance admin has added a Nephthys key in Settings.
+          key to get ticket summaries in the ticket peek, plus a queue brief on
+          each dashboard. Summaries read the ticket&apos;s message, so they work
+          on instances you&apos;re a member of once an instance admin has added
+          a Nephthys key in Settings.
         </p>
       </div>
 
@@ -268,7 +268,7 @@ function ModelPicker({
   const items = [
     ...SUGGESTED_AI_MODELS.map((m) => ({
       value: m.id,
-      label: m.id === defaultModel ? `${m.label} (default)` : m.label,
+      label: `${m.label} · ${m.id === defaultModel ? "default, " : ""}${m.note}`,
     })),
     { value: OTHER_MODEL, label: "Another model..." },
   ];

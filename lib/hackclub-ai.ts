@@ -401,14 +401,18 @@ export async function listModels(): Promise<AiModel[]> {
 }
 
 /**
- * Output budget and reasoning setting for a model. These tasks don't need
- * deep thinking, so turn reasoning off where the model allows it, otherwise
- * use its lowest effort and leave room for the reasoning tokens, which count
- * against max_tokens.
+ * Output budget and reasoning setting for a model.
+ * - `fast` (the streamed ticket summary): turn reasoning off where the model
+ *   allows it, otherwise use its lowest effort.
+ * - `think` (the one-shot queue brief, where grouping and ranking benefit
+ *   from a little thinking and nobody watches it stream): low effort where
+ *   the model offers it, else the same as `fast`.
+ * Reasoning tokens count against max_tokens, so reasoning gets headroom.
  */
 export async function budgetFor(
   model: string,
   maxTokens: number,
+  mode: "fast" | "think" = "fast",
 ): Promise<{ maxTokens: number; reasoning?: ReasoningConfig }> {
   let info: AiModel | undefined;
   try {
@@ -418,6 +422,12 @@ export async function budgetFor(
     return { maxTokens: maxTokens + REASONING_HEADROOM };
   }
   const reasoning = info?.reasoning;
+  if (mode === "think" && reasoning?.efforts.includes("low")) {
+    return {
+      maxTokens: maxTokens + REASONING_HEADROOM,
+      reasoning: { effort: "low", exclude: true },
+    };
+  }
   if (!reasoning?.byDefault) return { maxTokens };
 
   if (!reasoning.mandatory) {

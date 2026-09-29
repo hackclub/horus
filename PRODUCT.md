@@ -51,7 +51,7 @@ The consequence is directional: anything a single Nephthys instance already show
 - Marmalade API keys stored encrypted (AES-256-GCM) per user per instance.
 - One Nephthys API key per instance, set by an instance admin (`general:write`) in Settings, stored the same way and pinned to the host it was validated on (if the instance is repointed, the key isn't sent to the new host). With it, signed-in **members** of that instance see full ticket messages; signed-out visitors and non-members never do, since dashboards are public. Keyed fetches are uncached so they never land in a shared cache, and every surface showing message or AI text is marked `ph-no-capture` so PostHog autocapture and replay skip it.
 - Ticket peek (dialog) from the queue tables and the Review page, plus queue search.
-- AI with the user's own Hack Club AI key: per-ticket summary and reply draft (streamed; for members of an instance with a Nephthys key, since it reads the message) and a queue brief of the unassigned queue (works on titles alone, reads messages when a key is present). Requests ask OpenRouter for `data_collection: deny` providers; nothing is sent until the user presses a button, and outputs aren't stored.
+- AI with the user's own Hack Club AI key: a per-ticket summary (streamed; for members of an instance with a Nephthys key, since it reads the message) and a queue brief of the unassigned queue (works on titles alone, reads messages when a key is present). There is deliberately no AI reply drafting. Requests ask OpenRouter for `data_collection: deny` providers; nothing is sent until the user presses a button, and outputs aren't stored.
 - PostHog analytics with a genuine opt-out, plus in-product feedback surveys.
 
 **Roles.** Global: `user`, `admin` (super admin). Per-instance: `helper` (read), `admin` (read + general/member writes), `sponsor` (everything, including danger zone). An instance always needs a sponsor.
@@ -60,7 +60,7 @@ The consequence is directional: anything a single Nephthys instance already show
 
 **Constraints**
 
-- **Read-only for now.** Horus does not write tickets, replies, emails, or conversations. AI reply drafts are copied to the clipboard for the helper to post themselves. This is a deliberate current-phase constraint rather than a permanent product principle — ticket actions are plausible later, so design must not foreclose them. Configuration writes (instances, members, roles, preferences, API keys) exist today and are not covered by this constraint.
+- **Read-only for now.** Horus does not write tickets, replies, emails, or conversations. This is a deliberate current-phase constraint rather than a permanent product principle — ticket actions are plausible later, so design must not foreclose them. Configuration writes (instances, members, roles, preferences, API keys) exist today and are not covered by this constraint.
 - Freshness is bounded by upstream: Nephthys fetches use short revalidate windows, and directory counts are only as current as the last cron snapshot. Horus cannot be more live than the systems it reads.
 - Nephthys exposes no aggregate endpoint for resolution-time distribution, so Horus derives it by pulling a year of closed tickets. This is a known upstream gap, not a chosen design.
 - Authentication is Hack Club OAuth only. A Slack ID is mandatory; there are no local accounts and no email/password path.

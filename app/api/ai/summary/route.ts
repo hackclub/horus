@@ -1,4 +1,4 @@
-import { replyMessages, summaryMessages } from "@/lib/ai-prompts";
+import { summaryMessages } from "@/lib/ai-prompts";
 import {
   aiErrorResponse,
   isSameOrigin,
@@ -20,15 +20,10 @@ import type { Ticket } from "@/types/nephthys";
 
 export const maxDuration = 60;
 
-const TASKS = {
-  summary: { messages: summaryMessages, maxTokens: 1_200 },
-  reply: { messages: replyMessages, maxTokens: 1_200 },
-} as const;
-
-type Task = keyof typeof TASKS;
+const SUMMARY_MAX_TOKENS = 1_200;
 
 /**
- * Streams an AI summary or reply draft for one ticket as NDJSON:
+ * Streams an AI summary of one ticket as NDJSON:
  * `{"type":"text","text":…}` chunks, then `{"type":"done","truncated":bool}`,
  * or `{"type":"error","message":…}` if the stream breaks midway.
  *
@@ -48,16 +43,11 @@ export async function POST(request: Request) {
   const body = await readJsonBody(request);
   const slug = body?.slug;
   const ticketId = body?.ticketId;
-  const task = body?.task;
-  const notes = body?.notes;
   if (
     typeof slug !== "string" ||
     slug.length > 100 ||
     !Number.isSafeInteger(ticketId) ||
-    (ticketId as number) <= 0 ||
-    typeof task !== "string" ||
-    !(task in TASKS) ||
-    (notes !== undefined && (typeof notes !== "string" || notes.length > 500))
+    (ticketId as number) <= 0
   ) {
     return jsonError("InvalidInput", "Malformed request.", 400);
   }
@@ -119,14 +109,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const { messages, maxTokens } = TASKS[task as Task];
   let events: AsyncGenerator<StreamEvent>;
   try {
     events = await chatStream({
       apiKey: ai.apiKey,
       model: ai.model,
-      messages: messages(ticket, notes as string | undefined),
-      ...(await budgetFor(ai.model, maxTokens)),
+      messages: summaryMessages(ticket),
+      ...(await budgetFor(ai.model, SUMMARY_MAX_TOKENS)),
       signal: request.signal,
     });
   } catch (error) {

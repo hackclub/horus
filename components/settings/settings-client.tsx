@@ -729,7 +729,7 @@ function NephthysKeyPanel({
         <p className="text-xs text-muted-foreground">
           {key.hostChanged
             ? "The Nephthys host changed after this key was saved, so Horus doesn't send it anywhere. Add a key from the new host."
-            : `Set${key.setBy ? ` by ${key.setBy}` : ""} on ${new Date(key.updatedAt).toLocaleDateString()}.`}
+            : `Set${key.setBy ? ` by ${key.setBy}` : ""} on ${key.updatedAt.slice(0, 10)}.`}
         </p>
       )}
 

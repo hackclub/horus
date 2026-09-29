@@ -22,8 +22,8 @@ export const maxDuration = 60;
 
 /**
  * An AI read of the unassigned queue: themes, urgency, and what to pick up
- * next. Works on titles alone; with the viewer's Nephthys key it also reads
- * the start of each message.
+ * next. Works on titles alone; for members of an instance with a Nephthys
+ * key it also reads the start of each message.
  */
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   const included = queue.slice(0, BRIEF_TICKET_LIMIT);
   const omitted = queue.length - included.length;
 
-  const budget = await budgetFor(ai.model, 3_000);
+  const budget = await budgetFor(ai.model, 3_000, "think");
   const ask = (tickets: Ticket[]) =>
     chat({
       apiKey: ai.apiKey,

@@ -209,3 +209,31 @@ test("flags the proxy's prompt filter as blocked", async () => {
   expect(error.blocked).toBe(true);
   expect(error.code).toBe("Forbidden");
 });
+
+describe("budgetFor think mode", () => {
+  function models(reasoning: Record<string, unknown> | undefined) {
+    mockFetch(() =>
+      Response.json({
+        data: [{ id: "x/model", name: "Model", pricing: {}, reasoning }],
+      }),
+    );
+  }
+
+  test("uses low effort where offered, even if reasoning is optional", async () => {
+    models({
+      mandatory: false,
+      default_enabled: true,
+      supported_efforts: ["max", "high", "low"],
+    });
+    const budget = await budgetFor("x/model", 1000, "think");
+    expect(budget.reasoning).toEqual({ effort: "low", exclude: true });
+    expect(budget.maxTokens).toBeGreaterThan(1000);
+  });
+
+  test("leaves models without effort levels alone", async () => {
+    models({ mandatory: false });
+    expect(await budgetFor("x/model", 1000, "think")).toEqual({
+      maxTokens: 1000,
+    });
+  });
+});

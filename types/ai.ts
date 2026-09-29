@@ -18,10 +18,8 @@ export type QueueBriefResponse = {
   generatedAt: string;
 };
 
-/** One NDJSON line from POST /api/ai/ticket. */
+/** One NDJSON line from POST /api/ai/summary. */
 export type AiStreamLine =
   | { type: "text"; text: string }
   | { type: "done"; truncated: boolean }
   | { type: "error"; message: string };
-
-export type AiTicketTask = "summary" | "reply";
