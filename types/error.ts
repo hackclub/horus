@@ -8,7 +8,7 @@ export type ErrorCode =
   | "EncryptionKeyMissing"
   | "EncryptionFailed"
   | "InvalidInput"
-  // bring-your-own keys (nephthys, hack club ai)
+  // bring-your-own keys (hack club ai)
   | "InvalidApiKey"
   | "KeyNotSet"
   | "RateLimited"
